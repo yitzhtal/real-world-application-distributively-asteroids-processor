@@ -1,0 +1,5 @@
+start-date: 1/1/2017
+end-date: 1/1/2018
+speed-threshold: 23
+diameter-threshold: 57
+miss-threshold: 23
