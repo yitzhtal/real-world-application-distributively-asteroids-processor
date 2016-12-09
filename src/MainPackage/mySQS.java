@@ -61,6 +61,14 @@ public class mySQS {
 	       List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
 	       return messages;
 	    }
+	    
+	    public void printMessagesFromQueue(String queueUrl) {
+	        List<Message> messages = getMessagesFromQueue(queueUrl);
+	        
+	        for(Message msg : messages) {
+	            System.out.println(msg.getBody());
+	        }
+	    }
 
 	    public void deleteMessageFromQueue(String queueUrl, Message message){
 	        String messageRecieptHandle = message.getReceiptHandle();
