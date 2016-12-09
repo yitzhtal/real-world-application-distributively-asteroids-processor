@@ -10,20 +10,36 @@ import com.amazonaws.services.s3.model.PutObjectRequest;
 
 public class LocalApplication {	
 	public static void main(String[] args) {
+		
+		String inputFileName = args[0];
+		String outputFileName = args[1];
+		String n = args[2];
+		String d = args[3];
+		
+		System.out.println("Local Application :: has started...\n");
+		System.out.println("Arguments received :: inputFileName = "+ inputFileName);		
+		System.out.println("Arguments received :: outputFileName = "+ outputFileName);	
+		System.out.println("Arguments received :: n = "+ n);	
+		System.out.println("Arguments received :: d = "+ d + "\n\n");	
+		
+		
 		final String bucketName      = "real-world-application-distributively-asteroids-processor";
 		final String keyName         = "AKIAJG2FA5HDEBQAHA6A";
-		final String uploadFileName  = "AsteroidsAnalysis.html";
+		final String uploadFileName  = inputFileName;
 		
 		AmazonS3 s3client = new AmazonS3Client(new ProfileCredentialsProvider());
 
 		try {
-			System.out.println("Uploading a new object to S3 from a file\n");
+			System.out.println("Local Application :: Uploading the input file to S3...\n");
 			File file = new File(uploadFileName);
 			s3client.putObject(new PutObjectRequest(
 					bucketName, keyName, file));
-			System.out.println("done");
+			
+			String local_application_queue_name = "local_application_to_manager";
+			String local_application_queue_name_url = mySQS.getInstance().createQueue(local_application_queue_name);
+			mySQS.getInstance().sendMessageToQueue(local_application_queue_name_url, "Hi! I am local application!");						
 					
-
+			System.out.println("Local Application: done.");
 		} catch (AmazonServiceException ase) {
 			System.out.println(""
 					+ "Caught an AmazonServiceException, which " +
@@ -41,8 +57,8 @@ public class LocalApplication {
 					"an internal error while trying to " +
 					"communicate with S3, " +
 					"such as not being able to access the network.");
-			System.out.println("Error Message: " + ace.getMessage());
-		}
+			System.out.println("Error Message: " + ace.getMessage()); 
+		} 
 	}
 }
 
