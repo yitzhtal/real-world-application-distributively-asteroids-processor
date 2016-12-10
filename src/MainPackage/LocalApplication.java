@@ -33,7 +33,7 @@ public class LocalApplication {
 	
     private static String getUserDataScript(){
         ArrayList<String> lines = new ArrayList<String>();
-        lines.add("wget https://s3.amazonaws.com/real-world-application-distributively-asteroids-processor/manager.jar -P /home/ec2-user");
+        lines.add("wget https://s3.amazonaws.com/real-world-application-distributively-asteroids-processor/project.jar -P /home/ec2-user");
         String str = new String(Base64.encodeBase64(join(lines, "\n").getBytes()));
         return str;
     }
@@ -105,16 +105,16 @@ public class LocalApplication {
 			
 			/* make instance run ... */
 			
-			System.out.println("Local Application :: trying to run a manager ec2 instance... ");
+			System.out.println("Local Application :: trying to run a manager ec2 instance... \n");
 			
 			AWSCredentials credentials = new BasicAWSCredentials(accessKey,secretKey);
 		    AmazonEC2Client ec2 = new AmazonEC2Client(credentials);
 			RunInstancesRequest request = new RunInstancesRequest();
 			        
-			request.setInstanceType(InstanceType.M1Small.toString());
+			request.setInstanceType(InstanceType.T2Micro.toString());
 			        request.setMinCount(1);
-			        request.setMaxCount(1);
-			        request.setImageId("ami-84db39ed");
+			        request.setMaxCount(20);
+			        request.setImageId("ami-b73b63a0");
 			        request.setKeyName("hardwell");
 			        request.setUserData(getUserDataScript());
 			        ec2.runInstances(request);    

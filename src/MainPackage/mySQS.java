@@ -54,7 +54,7 @@ public class mySQS {
 	    public void sendMessageToQueue(String queueUrl, String message){
 	        SendMessageResult messageResult =  this.sqs.sendMessage(new SendMessageRequest(queueUrl, message));
 	        System.out.println("mySQS :: sending message to queue " + queueUrl + ", content: " + message);
-	        System.out.println("mySQS :: Message Body: " + messageResult);
+	        System.out.println("mySQS :: Message Body: " + messageResult + "\n");
 	    }
 
 	    public List<Message> getMessagesFromQueue(String queueUrl){
