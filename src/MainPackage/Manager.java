@@ -59,30 +59,10 @@ public class Manager {
 	}
 
 	public static void main(String[] args) throws ServiceException {
-		/* Manager waits for a message from the local application */
-		
-		System.out.println("Manager :: awaits a message stating the location of the input file on S3.");
-		
-		List<com.amazonaws.services.sqs.model.Message> messages = mySQS.getInstance().getMessagesFromQueue(LocalApplication.local_application_queue_name_url);
-	 
-		String bucketName = null, keyName = null;
-		com.amazonaws.services.sqs.model.Message msgObject = null;
-		if(!messages.isEmpty()) {
-	        for(com.amazonaws.services.sqs.model.Message msg :  messages) {
-	        	 System.out.println("Manager :: moving over the messages, searching for one with $ to splice...");
-	        	 msgObject = msg;
-	        	 String[] tokens = msg.getBody().split(Pattern.quote("$"));
-	     		 bucketName = tokens[0];
-	    		 keyName = tokens[1];
-	        }
-		} else {
-			System.out.println("Manager :: list of messages from local application is empty...");
-		}
-	
 		/* credentials handling ...  */
 		
 		Properties properties = new Properties();
-		String path = "C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AwsCredentials.properties";
+		String path = "AWSCredentials.properties";
 		try {
 			properties.load(new FileInputStream(path));
 		} catch (FileNotFoundException e1) {
@@ -94,19 +74,52 @@ public class Manager {
 		}
 		
 		String accessKey = properties.getProperty("accessKeyId");
-		String secretKey = properties.getProperty("secretKey");
+		String secretKey = properties.getProperty("secretKey"); 
+		mySQS.setAccessAndSecretKey(accessKey, secretKey);
 		
 		/* credentials handling ...  */
 		
+		/* Manager waits for a message from the local applications main queue */
+		
+		System.out.println("Manager :: awaits a message stating the location of the input file on S3.");
+		System.out.println("Manager :: fetching messages from queue: "+ LocalApplication.All_local_applications_queue_name);
+		System.out.println("Manager :: queue URL is: "+ mySQS.getInstance().getQueueUrl(LocalApplication.All_local_applications_queue_name));
+		
+		String queueURL = mySQS.getInstance().getQueueUrl(LocalApplication.All_local_applications_queue_name);
+		List<com.amazonaws.services.sqs.model.Message> messages = mySQS.getInstance().getMessagesFromQueue(queueURL);
+
+		String bucketName = null, keyName = null, queueURLtoGetBackTo = null;
+		
+		com.amazonaws.services.sqs.model.Message msgObject = null;
+		if(!messages.isEmpty()) {
+	        for(com.amazonaws.services.sqs.model.Message msg :  messages) {
+	        	 System.out.println("Manager :: moving over the messages, searching for one with $ to splice...");
+	        	 msgObject = msg;
+	        	 String[] tokens = msg.getBody().split(Pattern.quote("||||||"));
+	     		 bucketName = tokens[0];
+	    		 keyName = tokens[1];
+	    		 queueURLtoGetBackTo = tokens[2];	 
+	        }
+		} else {
+			System.out.println("Manager :: list of messages from local application is empty...");
+		}
+
 	    RestS3Service s3Service = new RestS3Service(new AWSCredentials(accessKey, secretKey));
 	    
 	    if(keyName != null && bucketName != null) {
 			    S3Object s3obj = s3Service.getObject(bucketName,keyName);
-			    mySQS.getInstance().deleteMessageFromQueue(LocalApplication.local_application_queue_name_url,msgObject);
+			    mySQS.getInstance().deleteMessageFromQueue(queueURL,msgObject);
 				InputStream content = s3obj.getDataInputStream();
 				System.out.println(getStringFromInputStream(content));
 	    } else {
 	    	    System.out.println("Manager :: Error! keyName = "+keyName + ", bucketName = "+bucketName);
 	    }
+	    
+	    
+	    
+	    /* manager is working & doing stuff... */
+	        
+	    mySQS.getInstance().sendMessageToQueue(queueURLtoGetBackTo,"Hi local application! I am done. here is what you wanted. :)");
+  
 	}
 }

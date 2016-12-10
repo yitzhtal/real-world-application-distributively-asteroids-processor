@@ -10,25 +10,32 @@ import java.util.List;
 import java.util.Properties;
 
 public class mySQS {
-	    private BasicAWSCredentials credentials;
-	    private AmazonSQS sqs;
-	    private static volatile mySQS awssqsUtil = new mySQS();
-
+	    private static BasicAWSCredentials credentials;
+	    private static AmazonSQS sqs;
+	    private static volatile mySQS awssqsUtil = null;
+	    private static String accessKey = null;
+	    private static String secretKey = null;
+	    
 	    private mySQS() {
-	    	try{
-	    		Properties properties = new Properties();
-	    		String path = "C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AwsCredentials.properties";
-	    		properties.load(new FileInputStream(path));
-	    		this.credentials = new BasicAWSCredentials(properties.getProperty("accessKeyId"),properties.getProperty("secretKey"));
-	    		this.sqs = new AmazonSQSClient(this.credentials);
-
-	    	}catch(Exception e){
-	    		System.out.println("exception while creating awss3client : " + e);
-	    	}
 	    }
 
-	    public static mySQS getInstance(){
-	        return awssqsUtil;
+	    public static mySQS getInstance() {
+		    	    if(awssqsUtil == null) {
+		    	    	    System.out.println("mySQS :: creating mySQS instance and all it`s components for the first time.");
+				    		credentials = new BasicAWSCredentials(accessKey,secretKey);
+				    		sqs = new AmazonSQSClient(credentials);
+				    		awssqsUtil = new mySQS();
+				    		System.out.println("mySQS :: the singleton has been created: " + awssqsUtil);
+		    	    }
+		    	    return awssqsUtil;
+	    }
+	    
+	    public static void setAccessAndSecretKey(String accessKey,String secretKey) {
+	    	System.out.println("mySQS: accessKey & secretKey is now synchornized. you can work!\n");
+	    	mySQS.accessKey = accessKey;
+	    	mySQS.secretKey = secretKey;
+	    	System.out.println("mySQS: accessKey = " + accessKey);
+	    	System.out.println("mySQS: secretKey = " + secretKey);
 	    }
 
 	    public AmazonSQS getAWSSQSClient(){
@@ -62,6 +69,19 @@ public class mySQS {
 	       List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
 	       return messages;
 	    }
+	    
+	    public List<Message> awaitMessagesFromQueue(String queueUrl,int n){
+		       ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(queueUrl);
+		       receiveMessageRequest.setWaitTimeSeconds(n);
+
+		       List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
+		       
+		       while(messages.isEmpty()) {
+		    	     messages = sqs.receiveMessage(receiveMessageRequest).getMessages(); 
+		    	     System.out.println("mySQS :: local application is still waiting for results...");
+		       }
+		       return messages;
+		}
 	    
 	    public void printMessagesFromQueue(String queueUrl) {
 	        List<Message> messages = getMessagesFromQueue(queueUrl);
