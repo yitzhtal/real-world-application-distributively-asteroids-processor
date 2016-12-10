@@ -53,7 +53,8 @@ public class mySQS {
 
 	    public void sendMessageToQueue(String queueUrl, String message){
 	        SendMessageResult messageResult =  this.sqs.sendMessage(new SendMessageRequest(queueUrl, message));
-	        System.out.println(messageResult.toString());
+	        System.out.println("mySQS :: sending message to queue " + queueUrl + ", content: " + message);
+	        System.out.println("mySQS :: Message Body: " + messageResult);
 	    }
 
 	    public List<Message> getMessagesFromQueue(String queueUrl){
@@ -72,7 +73,7 @@ public class mySQS {
 
 	    public void deleteMessageFromQueue(String queueUrl, Message message){
 	        String messageRecieptHandle = message.getReceiptHandle();
-	        System.out.println("message deleted : " + message.getBody() + "." + message.getReceiptHandle());
+	        System.out.println("mySQS :: message deleted : " + message.getBody());
 	        sqs.deleteMessage(new DeleteMessageRequest(queueUrl, messageRecieptHandle));
 	    }
 	}
