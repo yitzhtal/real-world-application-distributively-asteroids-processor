@@ -37,21 +37,22 @@ import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.util.IOUtils;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 public class LocalApplication {	
-	private static final String bucketName                           = "real-world-application-distributively-asteroids-processor";
+	private static final String bucketName                           = "real-world-application-asteroid-processor";
 	private static final String credentialsFileName                  = "AWSCredentials.zip";
 	public static final String All_local_applications_queue_name     = "all_local_applications_to_manager";
-	private static final Collection<com.amazonaws.services.ec2.model.Tag> Manager = null;
 	
     private static String getUserDataScript(){
         ArrayList<String> lines = new ArrayList<String>();
         lines.add("#!/bin/bash");
         lines.add("echo y|sudo yum install java-1.8.0");
         lines.add("echo y|sudo yum remove java-1.7.0-openjdk");
-        lines.add("wget https://s3.amazonaws.com/real-world-application-distributively-asteroids-processor/AWSCredentials.zip -O AWSCredentialsTEMP.zip");
+        lines.add("wget https://s3.amazonaws.com/real-world-application-asteroid-processor/AWSCredentials.zip -O AWSCredentialsTEMP.zip");
         lines.add("unzip -P audiocodes AWSCredentialsTEMP.zip");
-        lines.add("wget https://s3.amazonaws.com/real-world-application-distributively-asteroids-processor/manager.jar -O manager.jar");
+        lines.add("wget https://s3.amazonaws.com/real-world-application-asteroid-processor/manager.jar -O manager.jar");
         lines.add("java -jar manager.jar");
         String str = new String(Base64.encodeBase64(join(lines, "\n").getBytes()));
         return str;
@@ -75,134 +76,122 @@ public class LocalApplication {
 		
 		String inputFileName = args[0];
 		String outputFileName = args[1];
-		String n = args[2];
-		String d = args[3];
+		int n = Integer.parseInt(args[2]);
+		int d = Integer.parseInt(args[3]);
 		
 		System.out.println("Local Application :: has started...\n");
-		System.out.println("Arguments received :: inputFileName = "+ inputFileName);		
-		System.out.println("Arguments received :: outputFileName = "+ outputFileName);	
-		System.out.println("Arguments received :: n = "+ n);	
-		System.out.println("Arguments received :: d = "+ d + "\n\n");	
+		System.out.println("Local Application :: Arguments received :: inputFileName = "+ inputFileName);		
+		System.out.println("Local Application :: Arguments received :: outputFileName = "+ outputFileName);	
+		System.out.println("Local Application :: Arguments received :: n = "+ n);	
+		System.out.println("Local Application :: Arguments received :: d = "+ d + "\n\n");	
 		
 		final String uploadFileName  = inputFileName;
 		
 		AmazonS3 s3client = new AmazonS3Client(new ProfileCredentialsProvider());
 
-		try {
-			
-			/* credentials handling ...  */
-			
-			Properties properties = new Properties();
-			String path = "C:/Users/assaf/Downloads/AwsCredentials.properties";
-			try {
-				properties.load(new FileInputStream(path));
-			} catch (FileNotFoundException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			} catch (IOException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
-			
-			String accessKey = properties.getProperty("accessKeyId");
-			String secretKey = properties.getProperty("secretKey"); 
-			
-			/* credentials handling ...  */
-			
-			mySQS.setAccessAndSecretKey(accessKey, secretKey);
-			String All_local_application_queue_name_url = mySQS.getInstance().createQueue(All_local_applications_queue_name);
-			
-			//* Uploading file to S3... //*
-			System.out.println("Local Application :: Uploading the input file to S3...\n");
-			File file = new File(uploadFileName);
-			s3client.putObject(new PutObjectRequest(bucketName, inputFileName, file));
-			
-			String MessageFromLocalApplication = bucketName + "||||||";
-			String queueToGoBackTo = Integer.toString(System.identityHashCode(MessageFromLocalApplication));
-			String queueURLToGoBackTo = mySQS.getInstance().createQueue(queueToGoBackTo);
-			MessageFromLocalApplication += inputFileName + "||||||";
-			MessageFromLocalApplication += queueURLToGoBackTo;
-			
-			//* Sending message to manager... //*
-			mySQS.getInstance().sendMessageToQueue(All_local_application_queue_name_url,MessageFromLocalApplication);
-			
-			/* make instance run ... */
-			
-			System.out.println("Local Application :: trying to run a manager ec2 instance... \n");
-			
-			AWSCredentials credentials = new BasicAWSCredentials(accessKey,secretKey);
-		    AmazonEC2Client ec2 = new AmazonEC2Client(credentials);
-			RunInstancesRequest request = new RunInstancesRequest();
-			 Tag manager = new Tag("name","manager"); 
-			String userDataScript = getUserDataScript();
-			boolean hasManager = false;
-			Instance managerInstance;
-			DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest();
-			List<Reservation> reservations  = ec2.describeInstances(describeInstancesRequest).getReservations();
-			outerloop:
-			for(Reservation reservation:reservations)
-				for(Instance instance:reservation.getInstances())
-				{	
-					for(Tag tag:instance.getTags())
-						if(tag.getValue().equals("manager") && instance.getState().getName().equals("running"))
-						{
-							managerInstance = instance;
-							hasManager = true;
-							System.out.println("Local Application :: Already has manager");
-							break outerloop;
-						}
-				}			
-			if(!hasManager)
-			{
-				System.out.println("userDataScript returned: "+ userDataScript);
-				request.setInstanceType("t2.micro");
-				        request.setMinCount(1);
-				        request.setMaxCount(1);
-				        request.setImageId("ami-b73b63a0");
-				        request.setKeyName("hardwell");
-				        request.setUserData(userDataScript);
-				        RunInstancesResult runInstances=ec2.runInstances(request);  
-				        List<com.amazonaws.services.ec2.model.Instance> instances=runInstances.getReservation().getInstances();
-				        managerInstance = instances.get(0);
-				        CreateTagsRequest createTagsRequest=new CreateTagsRequest();
-				        createTagsRequest.withResources(instances.get(0).getInstanceId()).withTags(manager);
-				        ec2.createTags(createTagsRequest);
-			}
+		try {	
+				/* credentials handling ...  */
+				
+				Properties properties = new Properties();
+				String path = "C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties";
+				try {
+					properties.load(new FileInputStream(path));
+				} catch (FileNotFoundException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				} catch (IOException e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
+				
+				String accessKey = properties.getProperty("accessKeyId");
+				String secretKey = properties.getProperty("secretKey"); 
+				
+				/* credentials handling ...  */
+				
+				mySQS.setAccessAndSecretKey(accessKey, secretKey);
+				String All_local_application_queue_name_url = mySQS.getInstance().createQueue(All_local_applications_queue_name);
+				
+				//* Uploading file to S3... //*
+				System.out.println("Local Application :: Uploading the input file to S3...\n");			
+				s3client.putObject(new PutObjectRequest(bucketName, inputFileName, new File(uploadFileName)));
+				
+				Gson gson = new GsonBuilder().create();
+				
+				String queueToGoBackTo = Integer.toString(System.identityHashCode(s3client));
+				String queueURLToGoBackTo = mySQS.getInstance().createQueue(queueToGoBackTo);
+				
+				LocalApplicationMessage m = new LocalApplicationMessage(bucketName,inputFileName,queueURLToGoBackTo,outputFileName,n,d);  
+				
 
-					
-					
-			/* make instance run ... */
-			
-			System.out.println("Local Application: done. Now, I`m just waiting for the results... :)");
-			
-			System.out.println("LocalApplication :: singleton is still alive -> "+mySQS.getInstance());
-			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(queueURLToGoBackTo,20);
-			
-			for (Message msg : result) {
-				System.out.println(msg.getBody());
-			}
-			System.out.println("Local Application: done. Thanks for serving me!");
-			
+				//* Sending message to manager... //*
+				mySQS.getInstance().sendMessageToQueue(All_local_application_queue_name_url,gson.toJson(m));
+				
+				
+				System.out.println("Local Application :: trying to run a manager ec2 instance... \n");
+				RunInstancesRequest request = new RunInstancesRequest();
+				boolean hasManager = false;
+				DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest();
+				AmazonEC2Client ec2 = new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey));
+				List<Reservation> reservations  = ec2.describeInstances(describeInstancesRequest).getReservations();
+				
+				outerloop:
+				for(Reservation reservation : reservations) {
+					for(Instance instance:reservation.getInstances()) {	
+						for(Tag tag  :instance.getTags()) {
+							if(tag.getValue().equals("manager") && instance.getState().getName().equals("running")) {
+								hasManager = true;
+								System.out.println("Local Application :: Already has manager");
+								break outerloop;
+							}
+						}
+					}	
+				}
+				
+				if(!hasManager) {
+					System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
+					request.setInstanceType("t2.micro");
+					request.setMinCount(1);
+					request.setMaxCount(1);
+					request.setImageId("ami-b73b63a0");
+				    request.setKeyName("hardwell");
+					request.setUserData(getUserDataScript());
+					RunInstancesResult runInstances = ec2.runInstances(request);  
+					List<com.amazonaws.services.ec2.model.Instance> instances=runInstances.getReservation().getInstances();
+					CreateTagsRequest createTagsRequest = new CreateTagsRequest();
+					createTagsRequest.withResources(instances.get(0).getInstanceId()).withTags(new Tag("name","manager"));
+					ec2.createTags(createTagsRequest);
+				} 
+
+				
+				System.out.println("Local Application :: done. Now, I`m just waiting for the results... :)");
+				List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(queueURLToGoBackTo,5);
+				
+				for (Message msg : result) {
+					System.out.println(msg.getBody());
+				}
+				System.out.println("Local Application: done. Thanks for serving me!");
+				
 		} catch (AmazonServiceException ase) {
-			System.out.println(""
-					+ "Caught an AmazonServiceException, which " +
-					"means your request made it " +
-					"to Amazon S3, but was rejected with an error response" +
-					" for some reason.");
-			System.out.println("Error Message:    " + ase.getMessage());
-			System.out.println("HTTP Status Code: " + ase.getStatusCode());
-			System.out.println("AWS Error Code:   " + ase.getErrorCode());
-			System.out.println("Error Type:       " + ase.getErrorType());
-			System.out.println("Request ID:       " + ase.getRequestId());
+				System.out.println(""
+						+ "Caught an AmazonServiceException, which " +
+						"means your request made it " +
+						"to Amazon S3, but was rejected with an error response" +
+						" for some reason.");
+				System.out.println("Error Message:    " + ase.getMessage());
+				System.out.println("HTTP Status Code: " + ase.getStatusCode());
+				System.out.println("AWS Error Code:   " + ase.getErrorCode());
+				System.out.println("Error Type:       " + ase.getErrorType());
+				System.out.println("Request ID:       " + ase.getRequestId());
 		} catch (AmazonClientException ace) {
-			System.out.println("Caught an AmazonClientException, which " +
-					"means the client encountered " +
-					"an internal error while trying to " +
-					"communicate with S3, " +
-					"such as not being able to access the network.");
-			System.out.println("Error Message: " + ace.getMessage()); 
+				System.out.println("Caught an AmazonClientException, which " +
+						"means the client encountered " +
+						"an internal error while trying to " +
+						"communicate with S3, " +
+						"such as not being able to access the network.");
+				System.out.println("Error Message: " + ace.getMessage()); 
 		} 
-	}
-}
+	} 
+} 
 
 

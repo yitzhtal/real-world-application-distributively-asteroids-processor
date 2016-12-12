@@ -21,21 +21,17 @@ public class mySQS {
 
 	    public static mySQS getInstance() {
 		    	    if(awssqsUtil == null) {
-		    	    	    System.out.println("mySQS :: creating mySQS instance and all it`s components for the first time.");
 				    		credentials = new BasicAWSCredentials(accessKey,secretKey);
 				    		sqs = new AmazonSQSClient(credentials);
 				    		awssqsUtil = new mySQS();
-				    		System.out.println("mySQS :: the singleton has been created: " + awssqsUtil);
 		    	    }
 		    	    return awssqsUtil;
 	    }
 	    
 	    public static void setAccessAndSecretKey(String accessKey,String secretKey) {
-	    	System.out.println("mySQS: accessKey & secretKey is now synchornized. you can work!\n");
+	    	System.out.println("mySQS :: accessKey & secretKey is now synchornized. you can work!\n");
 	    	mySQS.accessKey = accessKey;
 	    	mySQS.secretKey = secretKey;
-	    	System.out.println("mySQS: accessKey = " + accessKey);
-	    	System.out.println("mySQS: secretKey = " + secretKey);
 	    }
 
 	    public AmazonSQS getAWSSQSClient(){
