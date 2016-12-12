@@ -23,8 +23,15 @@ import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
 import com.amazonaws.services.ec2.AmazonEC2Client;
+import com.amazonaws.services.ec2.model.CreateTagsRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
+import com.amazonaws.services.ec2.model.Instance;
 import com.amazonaws.services.ec2.model.InstanceType;
+import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
+import com.amazonaws.services.ec2.model.RunInstancesResult;
+import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.PutObjectRequest;
@@ -35,6 +42,7 @@ public class LocalApplication {
 	private static final String bucketName                           = "real-world-application-distributively-asteroids-processor";
 	private static final String credentialsFileName                  = "AWSCredentials.zip";
 	public static final String All_local_applications_queue_name     = "all_local_applications_to_manager";
+	private static final Collection<com.amazonaws.services.ec2.model.Tag> Manager = null;
 	
     private static String getUserDataScript(){
         ArrayList<String> lines = new ArrayList<String>();
@@ -85,7 +93,7 @@ public class LocalApplication {
 			/* credentials handling ...  */
 			
 			Properties properties = new Properties();
-			String path = "C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AwsCredentials.properties";
+			String path = "C:/Users/assaf/Downloads/AwsCredentials.properties";
 			try {
 				properties.load(new FileInputStream(path));
 			} catch (FileNotFoundException e1) {
@@ -125,17 +133,44 @@ public class LocalApplication {
 			AWSCredentials credentials = new BasicAWSCredentials(accessKey,secretKey);
 		    AmazonEC2Client ec2 = new AmazonEC2Client(credentials);
 			RunInstancesRequest request = new RunInstancesRequest();
-			        
+			 Tag manager = new Tag("name","manager"); 
 			String userDataScript = getUserDataScript();
-			System.out.println("userDataScript returned: "+ userDataScript);
-			request.setInstanceType("t2.micro");
-			        request.setMinCount(1);
-			        request.setMaxCount(1);
-			        request.setImageId("ami-b73b63a0");
-			        request.setKeyName("hardwell");
-			        request.setUserData(userDataScript);
-			        ec2.runInstances(request);    
-			        
+			boolean hasManager = false;
+			Instance managerInstance;
+			DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest();
+			List<Reservation> reservations  = ec2.describeInstances(describeInstancesRequest).getReservations();
+			outerloop:
+			for(Reservation reservation:reservations)
+				for(Instance instance:reservation.getInstances())
+				{	
+					for(Tag tag:instance.getTags())
+						if(tag.getValue().equals("manager") && instance.getState().getName().equals("running"))
+						{
+							managerInstance = instance;
+							hasManager = true;
+							System.out.println("Local Application :: Already has manager");
+							break outerloop;
+						}
+				}			
+			if(!hasManager)
+			{
+				System.out.println("userDataScript returned: "+ userDataScript);
+				request.setInstanceType("t2.micro");
+				        request.setMinCount(1);
+				        request.setMaxCount(1);
+				        request.setImageId("ami-b73b63a0");
+				        request.setKeyName("hardwell");
+				        request.setUserData(userDataScript);
+				        RunInstancesResult runInstances=ec2.runInstances(request);  
+				        List<com.amazonaws.services.ec2.model.Instance> instances=runInstances.getReservation().getInstances();
+				        managerInstance = instances.get(0);
+				        CreateTagsRequest createTagsRequest=new CreateTagsRequest();
+				        createTagsRequest.withResources(instances.get(0).getInstanceId()).withTags(manager);
+				        ec2.createTags(createTagsRequest);
+			}
+
+					
+					
 			/* make instance run ... */
 			
 			System.out.println("Local Application: done. Now, I`m just waiting for the results... :)");
