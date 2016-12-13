@@ -174,7 +174,6 @@ public class LocalApplication {
 					ec2.createTags(createTagsRequest);
 				} 
 
-				
 				System.out.println("Local Application :: done. Now, I`m just waiting for the results... :)");
 				List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(queueURLToGoBackTo,5);
 				

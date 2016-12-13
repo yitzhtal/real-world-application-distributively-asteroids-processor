@@ -109,8 +109,19 @@ public class Manager {
 		} else {
 			System.out.println("Manager :: list of messages from local application is empty...");
 		}
+		
+		RestS3Service s3Service = new RestS3Service(new AWSCredentials(accessKey, secretKey));
+		
+	    if(keyName != null && bucketName != null) {
+		    S3Object s3obj = s3Service.getObject(bucketName,keyName);
+		    mySQS.getInstance().deleteMessageFromQueue(queueURL,msgObject);
+			InputStream content = s3obj.getDataInputStream();
+			System.out.println(getStringFromInputStream(content));
+	    } else {
+	    	    System.out.println("Manager :: Error! keyName = "+keyName + ", bucketName = "+bucketName);
+	    }
 	
-	    System.out.println("Manager :: sennding message back to local application! :)");    
+	    System.out.println("Manager :: sending message back to local application! :)");    
 	    mySQS.getInstance().sendMessageToQueue(queueURLtoGetBackTo,"Hi local application! I am done. here is what you wanted. :)");
   
 	}
