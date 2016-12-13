@@ -99,7 +99,7 @@ public class LocalApplication {
 			/* credentials handling ...  */
 			
 			Properties properties = new Properties();
-			String path = "C:/Users/assaf/Downloads/AWSCredentials.properties";
+			String path = "C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties";
 			try {
 				properties.load(new FileInputStream(path));
 			} catch (FileNotFoundException e1) {

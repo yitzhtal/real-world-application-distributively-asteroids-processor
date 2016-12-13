@@ -90,8 +90,8 @@ public class Manager {
 		String queueURL = mySQS.getInstance().getQueueUrl(LocalApplication.All_local_applications_queue_name);
 		List<com.amazonaws.services.sqs.model.Message> messages = mySQS.getInstance().getMessagesFromQueue(queueURL);
 
-		String bucketName = null, keyName = null, queueURLtoGetBackTo = null,outputFileName;
-		int n,d;	
+		String bucketName = null, keyName = null, queueURLtoGetBackTo = null,outputFileName = null;
+		int n = 0,d = 0;	
 		Gson gson = new GsonBuilder().create();
 		com.amazonaws.services.sqs.model.Message msgObject = null;
 		if(!messages.isEmpty()) {
@@ -112,17 +112,20 @@ public class Manager {
 		
 		RestS3Service s3Service = new RestS3Service(new AWSCredentials(accessKey, secretKey));
 		
+		String FileInput = null;
 	    if(keyName != null && bucketName != null) {
 		    S3Object s3obj = s3Service.getObject(bucketName,keyName);
 		    mySQS.getInstance().deleteMessageFromQueue(queueURL,msgObject);
 			InputStream content = s3obj.getDataInputStream();
-			System.out.println(getStringFromInputStream(content));
+			FileInput = getStringFromInputStream(content);
 	    } else {
 	    	    System.out.println("Manager :: Error! keyName = "+keyName + ", bucketName = "+bucketName);
 	    }
 	
-	    System.out.println("Manager :: sending message back to local application! :)");    
-	    mySQS.getInstance().sendMessageToQueue(queueURLtoGetBackTo,"Hi local application! I am done. here is what you wanted. :)");
+	    System.out.println("Manager :: This is the information I have: " + FileInput + "n = " + n + ",d = "+d + ",outputFileName = "+outputFileName);    
+
+	    mySQS.getInstance().sendMessageToQueue(queueURLtoGetBackTo
+	    		,FileInput);
   
 	}
 }
