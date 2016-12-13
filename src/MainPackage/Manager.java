@@ -62,7 +62,7 @@ public class Manager {
 		/* credentials handling ...  */
 		
 		Properties properties = new Properties();
-		String path = "AWSCredentials.properties";
+		String path = "AWSCredentials.properties";//"C:/Users/assaf/Downloads/AWSCredentials.properties";
 		try {
 			properties.load(new FileInputStream(path));
 		} catch (FileNotFoundException e1) {

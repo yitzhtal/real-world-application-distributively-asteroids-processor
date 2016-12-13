@@ -11,6 +11,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
+import java.util.UUID;
 
 import org.apache.commons.codec.binary.Base64;
 import org.jets3t.service.S3ServiceException;
@@ -34,24 +35,24 @@ import com.amazonaws.services.ec2.model.RunInstancesResult;
 import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.CannedAccessControlList;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.sqs.model.Message;
 import com.amazonaws.util.IOUtils;
 
 public class LocalApplication {	
-	private static final String bucketName                           = "real-world-application-distributively-asteroids-processor";
+	private static final String bucketName                           = "real-world-application-asteroids";
 	private static final String credentialsFileName                  = "AWSCredentials.zip";
 	public static final String All_local_applications_queue_name     = "all_local_applications_to_manager";
-	private static final Collection<com.amazonaws.services.ec2.model.Tag> Manager = null;
 	
     private static String getUserDataScript(){
         ArrayList<String> lines = new ArrayList<String>();
         lines.add("#!/bin/bash");
         lines.add("echo y|sudo yum install java-1.8.0");
         lines.add("echo y|sudo yum remove java-1.7.0-openjdk");
-        lines.add("wget https://s3.amazonaws.com/real-world-application-distributively-asteroids-processor/AWSCredentials.zip -O AWSCredentialsTEMP.zip");
+        lines.add("wget https://s3.amazonaws.com/real-world-application-asteroids/AWSCredentials.zip -O AWSCredentialsTEMP.zip");
         lines.add("unzip -P audiocodes AWSCredentialsTEMP.zip");
-        lines.add("wget https://s3.amazonaws.com/real-world-application-distributively-asteroids-processor/manager.jar -O manager.jar");
+        lines.add("wget https://s3.amazonaws.com/real-world-application-asteroids/manager.jar -O manager.jar");
         lines.add("java -jar manager.jar");
         String str = new String(Base64.encodeBase64(join(lines, "\n").getBytes()));
         return str;
@@ -93,7 +94,7 @@ public class LocalApplication {
 			/* credentials handling ...  */
 			
 			Properties properties = new Properties();
-			String path = "C:/Users/assaf/Downloads/AwsCredentials.properties";
+			String path = "C:/Users/assaf/Downloads/AWSCredentials.properties";
 			try {
 				properties.load(new FileInputStream(path));
 			} catch (FileNotFoundException e1) {
@@ -115,9 +116,11 @@ public class LocalApplication {
 			//* Uploading file to S3... //*
 			System.out.println("Local Application :: Uploading the input file to S3...\n");
 			File file = new File(uploadFileName);
-			s3client.putObject(new PutObjectRequest(bucketName, inputFileName, file));
+			PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, inputFileName, file);
+			s3client.putObject(putObjectRequest.withCannedAcl(CannedAccessControlList.PublicReadWrite));
 			
 			String MessageFromLocalApplication = bucketName + "||||||";
+			//String uuid = UUID.randomUUID().toString();
 			String queueToGoBackTo = Integer.toString(System.identityHashCode(MessageFromLocalApplication));
 			String queueURLToGoBackTo = mySQS.getInstance().createQueue(queueToGoBackTo);
 			MessageFromLocalApplication += inputFileName + "||||||";
