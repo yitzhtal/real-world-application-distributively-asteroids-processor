@@ -13,6 +13,8 @@ import javax.swing.text.html.HTMLDocument.Iterator;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.simpleemail.model.Body;
 import com.amazonaws.services.simpleemail.model.Message;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -88,37 +90,27 @@ public class Manager {
 		String queueURL = mySQS.getInstance().getQueueUrl(LocalApplication.All_local_applications_queue_name);
 		List<com.amazonaws.services.sqs.model.Message> messages = mySQS.getInstance().getMessagesFromQueue(queueURL);
 
-		String bucketName = null, keyName = null, queueURLtoGetBackTo = null;
-		
+		String bucketName = null, keyName = null, queueURLtoGetBackTo = null,outputFileName;
+		int n,d;	
+		Gson gson = new GsonBuilder().create();
 		com.amazonaws.services.sqs.model.Message msgObject = null;
 		if(!messages.isEmpty()) {
 	        for(com.amazonaws.services.sqs.model.Message msg :  messages) {
-	        	 System.out.println("Manager :: moving over the messages, searching for one with $ to splice...");
+	        	 System.out.println("Manager :: moving over the messages...");
 	        	 msgObject = msg;
-	        	 String[] tokens = msg.getBody().split(Pattern.quote("||||||"));
-	     		 bucketName = tokens[0];
-	    		 keyName = tokens[1];
-	    		 queueURLtoGetBackTo = tokens[2];	 
+	             LocalApplicationMessage m = gson.fromJson(msgObject.getBody(), LocalApplicationMessage.class);
+	     		 bucketName = m.getBucketName();
+	    		 keyName = m.getInputFileName();
+	    		 queueURLtoGetBackTo = m.getQueueURLToGoBackTo();
+	    		 outputFileName = m.getOutputFileName();
+	    		 n = m.getN();
+	    		 d = m.getD();
 	        }
 		} else {
 			System.out.println("Manager :: list of messages from local application is empty...");
 		}
-
-	    RestS3Service s3Service = new RestS3Service(new AWSCredentials(accessKey, secretKey));
-	    
-	    if(keyName != null && bucketName != null) {
-			    S3Object s3obj = s3Service.getObject(bucketName,keyName);
-			    mySQS.getInstance().deleteMessageFromQueue(queueURL,msgObject);
-				InputStream content = s3obj.getDataInputStream();
-				System.out.println(getStringFromInputStream(content));
-	    } else {
-	    	    System.out.println("Manager :: Error! keyName = "+keyName + ", bucketName = "+bucketName);
-	    }
-	    
-	    
-	    
-	    /* manager is working & doing stuff... */
-	        
+	
+	    System.out.println("Manager :: sennding message back to local application! :)");    
 	    mySQS.getInstance().sendMessageToQueue(queueURLtoGetBackTo,"Hi local application! I am done. here is what you wanted. :)");
   
 	}
