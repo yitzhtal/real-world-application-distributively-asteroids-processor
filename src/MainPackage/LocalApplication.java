@@ -97,7 +97,21 @@ public class LocalApplication {
 		s3client.putObject(putObjectRequest.withCannedAcl(CannedAccessControlList.PublicReadWrite));
     }
     
-    public static boolean hasManager(Tag tag,Instance instance) {
+    public static boolean hasManager(List<Reservation> reservations) {
+		for(Reservation reservation : reservations) {
+			for(Instance instance : reservation.getInstances()) {	
+				for(Tag tag:instance.getTags()) {
+					if(hasManagerTaggedConditions(tag,instance)) {
+						System.out.println("Local Application :: Already has manager");
+						return true;
+					}
+				}	
+			}
+		}
+		return false;
+    }
+    
+    public static boolean hasManagerTaggedConditions(Tag tag,Instance instance) {
     	return (tag.getValue().equals("manager") && instance.getState().getName().equals("running"));
     }
 	
@@ -156,29 +170,19 @@ public class LocalApplication {
 			
 		    AmazonEC2Client ec2 = new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey));
 			RunInstancesRequest request = new RunInstancesRequest();
-			boolean hasManager = false;
 			DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest();
 			List<Reservation> reservations  = ec2.describeInstances(describeInstancesRequest).getReservations();
 			
-			outerloop:
-			for(Reservation reservation:reservations) {
-				for(Instance instance:reservation.getInstances()) {	
-					for(Tag tag:instance.getTags()) {
-						if(hasManager(tag,instance)) {
-							hasManager = true;
-							System.out.println("Local Application :: Already has manager");
-							break outerloop;
-						}
-					}	
-				}
-			}
-			
-			if(!hasManager) { createManager(request,ec2); } 
+			if(!hasManager(reservations)) { 
+				createManager(request,ec2); 
+			} 
 
 			System.out.println("Local Application :: done. Now, I`m just waiting for the results... :)");
 			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(queueURLToGoBackTo,5);
 				
-			for (Message msg : result) { System.out.println(msg.getBody()); }
+			for (Message msg : result) { 
+				System.out.println(msg.getBody()); 
+			}
 			
 			System.out.println("Local Application: done. Thanks for serving me!");
 				
