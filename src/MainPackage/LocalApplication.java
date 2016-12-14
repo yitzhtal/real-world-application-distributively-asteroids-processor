@@ -48,7 +48,7 @@ public class LocalApplication {
 	private static final String credentialsFileName                  = "AWSCredentials.zip";
 	public static final String All_local_applications_queue_name     = "all_local_applications_to_manager";
 	
-    private static String getUserDataScript(){
+    public static String getUserDataScript(){
         ArrayList<String> lines = new ArrayList<String>();
         lines.add("#!/bin/bash");
         lines.add("echo y|sudo yum install java-1.8.0");
@@ -74,13 +74,12 @@ public class LocalApplication {
         return builder.toString();
     }
 	
-    public static void createManager(RunInstancesRequest request,AmazonEC2Client ec2) {
-		System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
-		request.setInstanceType("t2.micro");
+    public static void createManager(RunInstancesRequest request,AmazonEC2Client ec2,String instancetype,String keyname,String imageid) {
+		request.setInstanceType(instancetype);
 		request.setMinCount(1);
 		request.setMaxCount(1);
-		request.setImageId("ami-b73b63a0");
-	    request.setKeyName("hardwell");
+		request.setImageId(imageid);
+	    request.setKeyName(keyname);
 		request.setUserData(getUserDataScript());
 		RunInstancesResult runInstances = ec2.runInstances(request);  
 		List<com.amazonaws.services.ec2.model.Instance> instances=runInstances.getReservation().getInstances();
@@ -91,13 +90,15 @@ public class LocalApplication {
     
     public static void uploadFileToS3(String inputFileName) {
     	AmazonS3 s3client = new AmazonS3Client(new ProfileCredentialsProvider());
-		System.out.println("Local Application :: Uploading the input file to S3...\n");
 		File file = new File(inputFileName);
 		PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, inputFileName, file);
 		s3client.putObject(putObjectRequest.withCannedAcl(CannedAccessControlList.PublicReadWrite));
     }
     
-    public static boolean hasManager(List<Reservation> reservations) {
+    public static boolean hasManager(AmazonEC2Client ec2) {
+		DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest();
+		List<Reservation> reservations  = ec2.describeInstances(describeInstancesRequest).getReservations();
+		
 		for(Reservation reservation : reservations) {
 			for(Instance instance : reservation.getInstances()) {	
 				for(Tag tag:instance.getTags()) {
@@ -116,7 +117,6 @@ public class LocalApplication {
     }
 	
 	public static void main(String[] args) {
-		
 		String inputFileName = args[0];
 		String outputFileName = args[1];
 		int n = Integer.parseInt(args[2]);
@@ -150,10 +150,13 @@ public class LocalApplication {
 			String secretKey = properties.getProperty("secretKey"); 
 			
 			mySQS.setAccessAndSecretKey(accessKey, secretKey);
+		    AmazonEC2Client ec2 = new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey));
+		    
 			/* credentials handling ...  */
 			
 			String All_local_application_queue_name_url = mySQS.getInstance().createQueue(All_local_applications_queue_name);
 			
+			System.out.println("Local Application :: Uploading the input file to S3...\n");
 			uploadFileToS3(inputFileName); 		
 			
 			Gson gson = new GsonBuilder().create();
@@ -167,14 +170,10 @@ public class LocalApplication {
 			/* make instance run ... */
 			
 			System.out.println("Local Application :: trying to run a manager ec2 instance... \n");
-			
-		    AmazonEC2Client ec2 = new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey));
-			RunInstancesRequest request = new RunInstancesRequest();
-			DescribeInstancesRequest describeInstancesRequest = new DescribeInstancesRequest();
-			List<Reservation> reservations  = ec2.describeInstances(describeInstancesRequest).getReservations();
-			
-			if(!hasManager(reservations)) { 
-				createManager(request,ec2); 
+
+			if(!hasManager(ec2)) { 
+				System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
+				createManager(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0"); 
 			} 
 
 			System.out.println("Local Application :: done. Now, I`m just waiting for the results... :)");
