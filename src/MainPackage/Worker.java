@@ -27,7 +27,6 @@ import com.amazonaws.services.sqs.model.Message;
 import com.google.gson.Gson;
 
 import JsonObjects.AtomicAnalysis;
-import JsonObjects.Color;
 import JsonObjects.AtomicTask;
 
 public class Worker {
@@ -123,36 +122,42 @@ public class Worker {
 			      					String miss_distance_kilometers = close_approach_data.getJSONObject("miss_distance").getString("kilometers");
 			      					String miss_distance_astronomical = close_approach_data.getJSONObject("miss_distance").getString("astronomical");
 	
-			      					AtomicAnalysis analysis = new AtomicAnalysis();
+			      					String danger = new String("DEFAULT");
 			      					
 			      					if(isHazardous) {
 				      					if(velocity >= speedThreshold) { //green
-				      						analysis.setDanger(Color.GREEN);
-				      					} else if(velocity >= speedThreshold && estimated_diameter_min >= diameterThreshold) { //yellow
-				      						analysis.setDanger(Color.YELLOW);
-				      					} else if(velocity >= speedThreshold && estimated_diameter_min >= diameterThreshold && Double.parseDouble(miss_distance_kilometers) >= missThreshold) { //red
-				      						analysis.setDanger(Color.RED);
-				      					} else {
-				      						analysis.setDanger(Color.DEFAULT);
+				      						danger = new String("GREEN");
+				      						System.out.println("Worker :: has changed danger to GREEN");
 				      					}
+				      					
+				      					if(velocity >= speedThreshold && estimated_diameter_min >= diameterThreshold) { //yellow
+				      						danger = new String("YELLOW");
+				      						System.out.println("Worker :: has changed danger to YELLOW");
+				      					}
+				      					
+				      					if(velocity >= speedThreshold && estimated_diameter_min >= diameterThreshold && Double.parseDouble(miss_distance_kilometers) >= missThreshold) { //red
+				      						danger = new String("RED");
+				      						System.out.println("Worker :: has changed danger to RED");
+				      					} 
 			      					}
 			      					
-			      					analysis.setNameAsteroid(nameAsteroid);
-			      					analysis.setClose_approach_data(close_approach_data_string);
-			      					analysis.setVelocity(velocity);
-			      					analysis.setEstimated_diameter_min(estimated_diameter_min);
-			      					analysis.setEstimated_diameter_max(estimated_diameter_max);
-			      					analysis.setMiss_distance_kilometers(miss_distance_kilometers);
+			      					AtomicAnalysis analysis = new AtomicAnalysis(nameAsteroid,close_approach_data_string,velocity,
+			      							estimated_diameter_min, estimated_diameter_max, miss_distance_kilometers,
+			      							danger);
+			      					analysis.setDanger(danger);
 				      				ja.put(new Gson().toJson(analysis));
 		      				}
 		      				
 		      			}
-		      			
 		      			String analysisRes = ja.toString();		
 		      			task.setDone(true);
 		      			task.setAtomicAnalysisResult(analysisRes);
 		    			System.out.println("----------------------------------------");
+		    			System.out.println("----------------------------------------");
+		    			System.out.println("----------------------------------------");
 		      			System.out.println(analysisRes);
+		    			System.out.println("----------------------------------------");
+		    			System.out.println("----------------------------------------");
 		    			System.out.println("----------------------------------------");
 		      			mySQS.getInstance().sendMessageToQueue(Manager.managerListener,new Gson().toJson(task));
 	         }               

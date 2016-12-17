@@ -262,6 +262,7 @@ public class Manager {
 	        terminateInstances(instancesToTerminate,accessKey,secretKey) ;
 	        System.out.println("Manager :: " + instancesToTerminate.size() + " " + tag + " has been terminated");
 	}
+	
 	public static void printHashMap(ConcurrentHashMap<String, ArrayList<AtomicTask>> f) {
 		for (String s : f.keySet()) {
 	        String key = s.toString();

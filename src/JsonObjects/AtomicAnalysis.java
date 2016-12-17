@@ -9,11 +9,11 @@ public class AtomicAnalysis {
 	private Double estimated_diameter_min;
 	private Double estimated_diameter_max;
 	private String miss_distance_kilometers;
-	private Color danger;
+	private String danger;
 	
 	public AtomicAnalysis(String nameAsteroid, String close_approach_data, Double velocity,
 			Double estimated_diameter_min, Double estimated_diameter_max, String miss_distance_kilometers,
-			Color danger) {
+			String danger) {
 		super();
 		this.nameAsteroid = nameAsteroid;
 		this.close_approach_data = close_approach_data;
@@ -26,7 +26,6 @@ public class AtomicAnalysis {
 	
 	public AtomicAnalysis() {
 		super();
-		this.danger = Color.DEFAULT;
 	}
 
 	public String getNameAsteroid() {
@@ -77,11 +76,11 @@ public class AtomicAnalysis {
 		this.miss_distance_kilometers = miss_distance_kilometers;
 	}
 
-	public Color getDanger() {
+	public String getDanger() {
 		return danger;
 	}
 
-	public void setDanger(Color danger) {
+	public void setDanger(String danger) {
 		this.danger = danger;
 	}
 	

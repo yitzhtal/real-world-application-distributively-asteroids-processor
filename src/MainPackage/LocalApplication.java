@@ -64,7 +64,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import JsonObjects.AtomicTask;
-import JsonObjects.Color;
 import JsonObjects.LocalApplicationMessage;
 import JsonObjects.SummaryFile;
 import JsonObjects.SummaryFileReceipt;
@@ -272,13 +271,16 @@ public class LocalApplication {
 							for (int i = 0; i < AtomicAnalysisResultAsJsonArray.length(); i++) {
 								        String AtomicAnalysisAsString = (String) AtomicAnalysisResultAsJsonArray.get(i);
 										JsonObjects.AtomicAnalysis o =  new Gson().fromJson(AtomicAnalysisAsString, JsonObjects.AtomicAnalysis.class);
-										if(o.getDanger().getValue() == 1) { //green
+							
+										System.out.println("DANGER COLOR IS ACTUALLY " + o.getDanger().toString());
+										
+										if(o.getDanger().equals("GREEN")) { //green
 											System.out.println("danger color is :: " + o.getDanger());
 											bufferedWriter.write("<tr bgcolor=#00ff00>");
-										} else if(o.getDanger().getValue() == 3) { //yellow
+										} else if(o.getDanger().equals("YELLOW")) { //yellow
 											System.out.println("danger color is :: " + o.getDanger());
 											bufferedWriter.write("<tr bgcolor=#FFff00>");
-										} else if(o.getDanger().getValue() == 2) { //red
+										} else if(o.getDanger().equals("RED")) { //red
 											bufferedWriter.write("<tr bgcolor=#FF0000>");
 											System.out.println("danger color is :: " + o.getDanger());
 										} else {
