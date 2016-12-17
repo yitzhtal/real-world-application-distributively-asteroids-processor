@@ -26,7 +26,9 @@ import org.json.JSONTokener;
 import com.amazonaws.services.sqs.model.Message;
 import com.google.gson.Gson;
 
-import JsonObjects.InputFile;
+import JsonObjects.AtomicAnalysis;
+import JsonObjects.Color;
+import JsonObjects.AtomicTask;
 
 public class Worker {
 	public static void main(String[] args) throws Exception {
@@ -34,7 +36,7 @@ public class Worker {
 		/* credentials handling ...  */
 	
 		Properties properties = new Properties();
-		String path = "AWSCredentials.properties";  //"C:/Users/assaf/Downloads/AWSCredentials.properties";
+		String path = "C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties";  //"C:/Users/assaf/Downloads/AWSCredentials.properties";
 		try {
 			properties.load(new FileInputStream(path));
 		} catch (FileNotFoundException e1) {
@@ -52,20 +54,21 @@ public class Worker {
 		/* credentials handling ...  */
 	
 		while(true) {	
-			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),15,"Worker");
+			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),10,"Worker");
 	        String startDate,endDate;
 	        int speedThreshold,diameterThreshold;
 	        double missThreshold;
-	        InputFile split = null;
+	        AtomicTask task = null;
 	        
 			for(Message msg : result) { 
 					    String s = msg.getBody();      	  			  
-					    split = new Gson().fromJson(s, InputFile.class);			  
-		                startDate = split.getStartDate();
-		                endDate = split.getEndDate();
-		                speedThreshold = split.getSpeedThreshold();
-		                diameterThreshold = split.getDiameterThreshold();
-		                missThreshold = split.getMissThreshold();
+					    task = new Gson().fromJson(s, AtomicTask.class);
+					    mySQS.getInstance().deleteMessageFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),msg);
+		                startDate = task.getStartDate();
+		                endDate = task.getEndDate();
+		                speedThreshold = task.getSpeedThreshold();
+		                diameterThreshold = task.getDiameterThreshold();
+		                missThreshold = task.getMissThreshold();
 		                StringBuilder HTMLOutput = new StringBuilder();
 		      	    
 		      	        String url = "https://api.nasa.gov/neo/rest/v1/feed?start_date="
@@ -99,50 +102,59 @@ public class Worker {
 		      			JSONObject jsonObject = new JSONObject(new JSONTokener(response.toString()));
 		      			JSONObject nearEarthObjects = jsonObject.getJSONObject("near_earth_objects");
 		      			Iterator<?> nearEarthObjectsIterator = nearEarthObjects.keys();
-		
+		      			JSONArray ja = null;
+
 		      			while (nearEarthObjectsIterator.hasNext()) {
 		      				String currentDate = nearEarthObjectsIterator.next().toString();
 		      				JSONArray lineItems = nearEarthObjects.getJSONArray(currentDate);
 		
 		      				//Iterate all Asteroids on a specific Date
-		
+		      				ja = new JSONArray();
+		      				
 		      				for (int i = 0; i < lineItems.length(); i++) {
-		      					
-		      					JSONObject specificAsteroid = lineItems.getJSONObject(i);
-		      					Boolean isHazardous = specificAsteroid.getBoolean("is_potentially_hazardous_asteroid");
-		      					String nameAsteroid = specificAsteroid.getString("name");
-		      					JSONObject close_approach_data = (JSONObject) specificAsteroid.getJSONArray("close_approach_data").get(0);  
-		      					String close_approach_data_string = close_approach_data.getString("close_approach_date");
-		      					Double velocity = close_approach_data.getJSONObject((("relative_velocity"))).getDouble("kilometers_per_second");
-		      					Double estimated_diameter_min = specificAsteroid.getJSONObject("estimated_diameter").getJSONObject("meters").getDouble("estimated_diameter_min");
-		      					Double estimated_diameter_max = specificAsteroid.getJSONObject("estimated_diameter").getJSONObject("meters").getDouble("estimated_diameter_max");			
-		      					String miss_distance_kilometers = close_approach_data.getJSONObject("miss_distance").getString("kilometers");
-		      					String miss_distance_astronomical = close_approach_data.getJSONObject("miss_distance").getString("astronomical");
-		      		
-		      					if(velocity >= speedThreshold) { //green
-		      						HTMLOutput.append("<tr bgcolor=#00ff00>");
-		      					} else if(velocity >= speedThreshold && estimated_diameter_min >= diameterThreshold) { //yellow
-		      						HTMLOutput.append("<tr bgcolor=#FFff00>");
-		      					} else if(velocity >= speedThreshold && estimated_diameter_min >= diameterThreshold && Double.parseDouble(miss_distance_kilometers) >= missThreshold) { //red
-		      						HTMLOutput.append("<tr bgcolor=#FF0000>");
-		      					} else {
-		      						HTMLOutput.append("<tr>");
-		      					}
-		      					
-		      					HTMLOutput.append("<td>" + nameAsteroid +"</td>");
-		      					HTMLOutput.append("<td>" + close_approach_data_string +"</td>");
-		      					HTMLOutput.append("<td>" + velocity +"</td>");
-		      					HTMLOutput.append("<td>" + estimated_diameter_min +"</td>");
-		      					HTMLOutput.append("<td>" + estimated_diameter_max+"</td>");
-		      					HTMLOutput.append("<td>" + miss_distance_kilometers +"</td>");	
-		      					HTMLOutput.append("</tr>");	
+			      					JSONObject specificAsteroid = lineItems.getJSONObject(i);
+			      					Boolean isHazardous = specificAsteroid.getBoolean("is_potentially_hazardous_asteroid");
+			      					String nameAsteroid = specificAsteroid.getString("name");
+			      					JSONObject close_approach_data = (JSONObject) specificAsteroid.getJSONArray("close_approach_data").get(0);  
+			      					String close_approach_data_string = close_approach_data.getString("close_approach_date");
+			      					Double velocity = close_approach_data.getJSONObject((("relative_velocity"))).getDouble("kilometers_per_second");
+			      					Double estimated_diameter_min = specificAsteroid.getJSONObject("estimated_diameter").getJSONObject("meters").getDouble("estimated_diameter_min");
+			      					Double estimated_diameter_max = specificAsteroid.getJSONObject("estimated_diameter").getJSONObject("meters").getDouble("estimated_diameter_max");			
+			      					String miss_distance_kilometers = close_approach_data.getJSONObject("miss_distance").getString("kilometers");
+			      					String miss_distance_astronomical = close_approach_data.getJSONObject("miss_distance").getString("astronomical");
+	
+			      					AtomicAnalysis analysis = new AtomicAnalysis();
+			      					
+			      					if(isHazardous) {
+				      					if(velocity >= speedThreshold) { //green
+				      						analysis.setDanger(Color.GREEN);
+				      					} else if(velocity >= speedThreshold && estimated_diameter_min >= diameterThreshold) { //yellow
+				      						analysis.setDanger(Color.YELLOW);
+				      					} else if(velocity >= speedThreshold && estimated_diameter_min >= diameterThreshold && Double.parseDouble(miss_distance_kilometers) >= missThreshold) { //red
+				      						analysis.setDanger(Color.RED);
+				      					} else {
+				      						analysis.setDanger(Color.DEFAULT);
+				      					}
+			      					}
+			      					
+			      					analysis.setNameAsteroid(nameAsteroid);
+			      					analysis.setClose_approach_data(close_approach_data_string);
+			      					analysis.setVelocity(velocity);
+			      					analysis.setEstimated_diameter_min(estimated_diameter_min);
+			      					analysis.setEstimated_diameter_max(estimated_diameter_max);
+			      					analysis.setMiss_distance_kilometers(miss_distance_kilometers);
+				      				ja.put(new Gson().toJson(analysis));
 		      				}
 		      				
 		      			}
 		      			
-		      			split.setDone(true);
-		      			split.setHTMLOutput(HTMLOutput);
-		      			mySQS.getInstance().sendMessageToQueue(Manager.managerListener,new Gson().toJson(split));
+		      			String analysisRes = ja.toString();		
+		      			task.setDone(true);
+		      			task.setAtomicAnalysisResult(analysisRes);
+		    			System.out.println("----------------------------------------");
+		      			System.out.println(analysisRes);
+		    			System.out.println("----------------------------------------");
+		      			mySQS.getInstance().sendMessageToQueue(Manager.managerListener,new Gson().toJson(task));
 	         }               
 		}
 	}

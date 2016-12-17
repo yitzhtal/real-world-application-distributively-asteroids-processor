@@ -2,28 +2,25 @@ package JsonObjects;
 
 public class SummaryFile {
 	
-	public StringBuilder HTMLResult;
-	public String localUUID;
-	
-	
-	public SummaryFile(String fileNameBeforeHTML,StringBuilder HTMLResult,String localUUID) {
-		this.HTMLResult = HTMLResult;
+	public SummaryFile(String atomicAnalysisResult, String localUUID) {
+		super();
+		AtomicAnalysisResult = atomicAnalysisResult;
 		this.localUUID = localUUID;
 	}
-		
-	public StringBuilder getHTMLResult() {
-		return HTMLResult;
+	public String getAtomicAnalysisResult() {
+		return AtomicAnalysisResult;
 	}
-	
-	public void setHTMLResult(StringBuilder HTMLResult) {
-		this.HTMLResult = HTMLResult;
+	public void setAtomicAnalysisResult(String atomicAnalysisResult) {
+		AtomicAnalysisResult = atomicAnalysisResult;
 	}
-	
 	public String getLocalUUID() {
 		return localUUID;
 	}
-	
 	public void setLocalUUID(String localUUID) {
 		this.localUUID = localUUID;
 	}
+	public String AtomicAnalysisResult;
+	public String localUUID;
+	
+
 }

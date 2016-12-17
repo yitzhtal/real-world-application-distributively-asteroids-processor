@@ -60,9 +60,10 @@ public class mySQS {
 	        System.out.println("mySQS :: Message Body: " + messageResult + "\n");
 	    }
 
-	    public List<Message> getMessagesFromQueue(String queueUrl){
+	    public List<Message> getMessagesFromQueue(String queueUrl,String entity){
 	       ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(queueUrl);
 	       List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
+  	     System.out.println("mySQS :: "+entity+" is getting waiting for results...");
 	       return messages;
 	    }
 	    
@@ -80,7 +81,7 @@ public class mySQS {
 		}
 	    
 	    public void printMessagesFromQueue(String queueUrl) {
-	        List<Message> messages = getMessagesFromQueue(queueUrl);
+	        List<Message> messages = getMessagesFromQueue(queueUrl,"");
 	        
 	        for(Message msg : messages) {
 	            System.out.println(msg.getBody());

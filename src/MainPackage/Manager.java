@@ -15,6 +15,8 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Pattern;
@@ -40,7 +42,7 @@ import com.amazonaws.services.simpleemail.model.Message;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import JsonObjects.InputFile;
+import JsonObjects.AtomicTask;
 import JsonObjects.LocalApplicationMessage;
 import JsonObjects.SummaryFile;
 import JsonObjects.SummaryFileReceipt;
@@ -48,6 +50,7 @@ import JsonObjects.SummaryFileReceipt;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLStreamHandler;
@@ -64,6 +67,9 @@ import org.jets3t.service.ServiceException;
 import org.jets3t.service.impl.rest.httpclient.RestS3Service;
 import org.jets3t.service.model.S3Object;
 import org.jets3t.service.security.AWSCredentials;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class Manager {
 
@@ -130,6 +136,21 @@ public class Manager {
 		return builder.toString();
 	}
 
+	private static JSONArray concatArray(JSONArray arr1, JSONArray arr2)
+	        throws JSONException {
+	    JSONArray result = new JSONArray();
+	    if(arr1 == null) return arr2;
+	    if(arr2 == null) return arr1;
+	    
+	    for (int i = 0; i < arr1.length(); i++) {
+	        result.put(arr1.get(i));
+	    }
+	    for (int i = 0; i < arr2.length(); i++) {
+	        result.put(arr2.get(i));
+	    }
+	    return result;
+	}
+	
 	public static int howManyDaysBetween(Date d1, Date d2){
 		return (int)( (d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
 	}
@@ -148,7 +169,7 @@ public class Manager {
 		ec2.createTags(createTagsRequest);
 	}
 
-	public static ArrayList<InputFile> splitWorkAmongsWorkers(InputFile input, int d){
+	public static ArrayList<AtomicTask> splitWorkAmongsWorkers(AtomicTask input, int d){
 		Calendar cal1 = new GregorianCalendar();
 		Calendar cal2 = new GregorianCalendar();
 
@@ -170,7 +191,7 @@ public class Manager {
 		cal2.setTime(date);
 
 		int days = howManyDaysBetween(cal1.getTime(),cal2.getTime());
-		ArrayList<InputFile> tasks = new ArrayList<InputFile>();
+		ArrayList<AtomicTask> tasks = new ArrayList<AtomicTask>();
 
 		int day_per_task = d;
 		int count = 0;
@@ -184,7 +205,7 @@ public class Manager {
 			String start = sdf.format(cal1.getTime());
 			cal1.add(Calendar.DATE, day_per_task);
 			String end = sdf.format(cal1.getTime());
-			InputFile split = new InputFile(start,end,input.getSpeedThreshold(),input.getDiameterThreshold(),input.getDiameterThreshold(),input.getIsTerminated());
+			AtomicTask split = new AtomicTask(start,end,input.getSpeedThreshold(),input.getDiameterThreshold(),input.getDiameterThreshold(),input.getIsTerminated());
 			split.setDone(false);
 			split.setLocalUUID(input.getLocalUUID());
 			tasks.add(split);
@@ -195,25 +216,22 @@ public class Manager {
 	}
 	
 	
-	public static void setAndPackUpLocalApplication(String localUUID, StringBuilder allHTMLOutput,ConcurrentHashMap<String, String> mapLocalsQueueURLS) {
+	@SuppressWarnings("resource")
+	public static void setAndPackUpLocalApplication(String localUUID, String AtomicAnalysisResult,ConcurrentHashMap<String, String> mapLocalsQueueURLS) throws IOException {
 			String fileNameBeforeHTML = "AsteroidsAnalysis-" + localUUID;
-			SummaryFile s = new  SummaryFile(fileNameBeforeHTML,allHTMLOutput,localUUID);
-			File f = new File(fileNameBeforeHTML);
-			FileWriter fileWriter = null;
-			BufferedWriter bufferedWriter = null;
-			try {
-				fileWriter = new FileWriter(f);
+			
+			SummaryFile s = new SummaryFile(AtomicAnalysisResult,localUUID);
+			String SummaryFileAsJson = new Gson().toJson(s);
+
+			
+			try{
+			    PrintWriter writer = new PrintWriter(new File(fileNameBeforeHTML), "UTF-8");
+			    writer.println(SummaryFileAsJson);
+			    writer.close();
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
+			   // do something
 			}
-			bufferedWriter = new BufferedWriter(fileWriter);
-			try {
-				bufferedWriter.write(new Gson().toJson(s));
-			} catch (IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			
 			LocalApplication.uploadFileToS3(fileNameBeforeHTML);
 			String urlToFile = "https://"
 					+ LocalApplication.bucketName
@@ -244,7 +262,7 @@ public class Manager {
 	        terminateInstances(instancesToTerminate,accessKey,secretKey) ;
 	        System.out.println("Manager :: " + instancesToTerminate.size() + " " + tag + " has been terminated");
 	}
-	public static void printHashMap(ConcurrentHashMap<String, ArrayList<InputFile>> f) {
+	public static void printHashMap(ConcurrentHashMap<String, ArrayList<AtomicTask>> f) {
 		for (String s : f.keySet()) {
 	        String key = s.toString();
 	        String value = f.get(s).toString();  
@@ -292,9 +310,8 @@ public class Manager {
 
 		String workersListenerURL = mySQS.getInstance().createQueue(workersListener);
 		String managerListenerURL = mySQS.getInstance().createQueue(managerListener);
-		ConcurrentHashMap<String, ArrayList<InputFile>> mapLocals = new ConcurrentHashMap<String, ArrayList<InputFile>>();
+		ConcurrentHashMap<String, ArrayList<AtomicTask>> mapLocals = new ConcurrentHashMap<String, ArrayList<AtomicTask>>();
 		ConcurrentHashMap<String, String> mapLocalsQueueURLS = new ConcurrentHashMap<String, String>();
-
 		/* Set data structures */
 
 		Thread localApplicationHandler = new Thread(){
@@ -311,12 +328,12 @@ public class Manager {
 								int n = 0,d = 0;	
 								Boolean isTerminated = false;
 								Gson gson = new GsonBuilder().create();
-								com.amazonaws.services.sqs.model.Message msgObject = null;
 								if(!messages.isEmpty()) {
 									for(com.amazonaws.services.sqs.model.Message msg :  messages) {
 										System.out.println("Manager :: moving over the messages...");
-										msgObject = msg;
-										LocalApplicationMessage m = gson.fromJson(msgObject.getBody(), LocalApplicationMessage.class);
+										LocalApplicationMessage m = gson.fromJson(msg.getBody(), LocalApplicationMessage.class);			
+										mySQS.getInstance().deleteMessageFromQueue(queueURL,msg);
+										
 										bucketName = m.getBucketName();
 										keyName = m.getInputFileName();
 										queueURLtoGetBackTo = m.getQueueURLToGoBackTo();
@@ -327,13 +344,15 @@ public class Manager {
 										isTerminated = m.getIsTerminatedMessage();
 										//add the queue URL to the hash map
 										mapLocalsQueueURLS.put(UUID, queueURLtoGetBackTo);
+										
+										//deletes the message from the queue...	
 									}
 								}
 				
 								RestS3Service s3Service = new RestS3Service(new AWSCredentials(accessKey, secretKey));
 								AmazonEC2Client ec2 = new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey));
 				
-								InputFile inputFileDetails = new InputFile();
+								AtomicTask inputFileDetails = new AtomicTask();
 								inputFileDetails.setLocalUUID(UUID);
 								inputFileDetails.setIsTerminated(isTerminated);
 								String FileInput = null;
@@ -345,7 +364,6 @@ public class Manager {
 										// TODO Auto-generated catch block
 										e1.printStackTrace();
 									}
-									mySQS.getInstance().deleteMessageFromQueue(queueURL,msgObject);
 									InputStream content = null;
 									try {
 										content = s3obj.getDataInputStream();
@@ -383,23 +401,24 @@ public class Manager {
 								
 								System.out.println("Manager (localApplicationHandler) :: split the work amongs the workers...");
 				
-								ArrayList<InputFile> splits = splitWorkAmongsWorkers(inputFileDetails,d);
+								ArrayList<AtomicTask> splits = splitWorkAmongsWorkers(inputFileDetails,d);
 								int numberOfWorkers = splits.size() / n;
 								int numberOfWorkersToCreate = numberOfWorkers - currentNumberOfWorkers.get();
 				
+								//puts in the relevant hash map...
 								mapLocals.put(UUID,splits);
 								
 								System.out.println("Manager (localApplicationHandler) :: printing the hash map:");
 								printHashMap(mapLocals);
 								
 								for(int i=0; i< numberOfWorkersToCreate; i++) {
-									System.out.println("Manager (localApplicationHandler) :: creating a worker!");
-									createAndRunWorker(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0");
+									//System.out.println("Manager (localApplicationHandler) :: creating a worker!");
+									//createAndRunWorker(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0");
 									currentNumberOfWorkers.incrementAndGet();
 								}
 				
 								// move all splits towards the workers for them to handle...
-								for (InputFile f : splits) {
+								for (AtomicTask f : splits) {
 									System.out.println("Manager (localApplicationHandler) :: send all tasks to workers queue...");
 									mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(f));
 								}
@@ -410,58 +429,39 @@ public class Manager {
 
 		Thread workersHandler = new Thread(){
 			public void run(){
-				System.out.println("Manager (workersHandler) :: is running...");
-				System.out.println("Manager (workersHandler) :: terminated = " + terminated);
-				while(!terminated || !(mySQS.getInstance().getMessagesFromQueue(mySQS.getInstance().getQueueUrl(Manager.managerListener)).isEmpty())) {
-							System.out.println("Manager (workersHandler) :: workersListener is not empty, fetching for messages....");
-							List<com.amazonaws.services.sqs.model.Message> result = mySQS.getInstance().awaitMessagesFromQueue(mySQS.getInstance().getQueueUrl(Manager.managerListener),5,"Manager (workersHandler)");
-							InputFile split = null;
-							StringBuilder HTMLResult = null;
-							for(com.amazonaws.services.sqs.model.Message msg : result) { 
-										String m = msg.getBody();
-										split = new Gson().fromJson(m, InputFile.class);
-										System.out.println();
-										System.out.println("Manager :: split =>" + new Gson().toJson(split));
-										System.out.println();
-										HTMLResult = split.getHTMLOutput();
-										ArrayList<InputFile> splits = mapLocals.get(split.getLocalUUID());
-										
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										//*  problem was HERE !!!!!!!!!!!!!! //*
-										
-										
-									
-					                    if(splits != null) {
-												System.out.println("Manager (workersHandler) :: now splits is with the size of " + splits.size());
-												for (InputFile f : splits) {
-													System.out.println("Manager (workersHandler): "+f.getTaskUUID()+" task is with the status done? "+f.getDone());
-												}
-												for (InputFile f : splits) {
-														if(f.getTaskUUID().equals(split.getTaskUUID())) {
-															if(f.getDone() == false) {
-																f.setDone(true);
-																f.setHTMLOutput(HTMLResult);
-															}
+							System.out.println("Manager (workersHandler) :: has started running...");
+							System.out.println("Manager (workersHandler) :: terminated = " + terminated);
+							while(!terminated || mySQS.getInstance().getMessagesFromQueue(managerListenerURL,"Manager (workersHandler)").isEmpty()) {
+										System.out.println("Manager (workersHandler) :: workersListener is not empty, fetching for messages....");
+										List<com.amazonaws.services.sqs.model.Message> result = mySQS.getInstance().awaitMessagesFromQueue(managerListenerURL,5,"Manager (workersHandler)");
+										AtomicTask AtomicTaskFromWorker = null;
+										for(com.amazonaws.services.sqs.model.Message msg : result) { 
+													AtomicTaskFromWorker = new Gson().fromJson(msg.getBody(), AtomicTask.class);
+													
+													//deletes message from queue...
+													mySQS.getInstance().deleteMessageFromQueue(managerListenerURL,msg);
+													
+													printHashMap(mapLocals);
+												    ArrayList<AtomicTask> tasks = mapLocals.get(AtomicTaskFromWorker.getLocalUUID());	
+													
+								                    if(tasks != null) {
+								                    	for (AtomicTask f : tasks) {
+																if(f.getTaskUUID().equals(AtomicTaskFromWorker.getTaskUUID())) {
+																		if(f.getDone() == false) {
+																				System.out.println("Manager (workersHandler) :: " + f.getTaskUUID() + " task is marked as DONE !!!");    
+																				f.setDone(true);
+																				f.setAtomicAnalysisResult(AtomicTaskFromWorker.getAtomicAnalysisResult());
+																		} else {
+																				System.out.println("Manager (workersHandler) :: " + f.getTaskUUID() + " task is already marked as done.");    
+																		}
+																}
 														}
-												}
-					                    } else {
-					                    		System.out.println("Manager (workersHandler): splits is empty! the workers are not done yet.");
-					                    }
-							}  
-				}
-				//gets here only if terminated == true && managerListener is an empty queue.
-				System.out.println("Manager :: workers handler thread was just stopped. There are no more messages on managerListener queue and we got a termination message.");
-			}
+								                    }
+										}  
+							}
+							//gets here only if terminated == true && managerListener is an empty queue.
+							System.out.println("Manager :: workers handler thread was just stopped. There are no more messages on managerListener queue and we got a termination message.");
+						}
 		};
 
 
@@ -471,91 +471,121 @@ public class Manager {
 		//If it is a termination message and there are no more locals that are waiting for results -> it can kill all workers.
 		Thread sealTheDealDaemon = new Thread(){
 			public void run() {
-				System.out.println("Manager (sealTheDealDaemon) :: is running, searching for finished tasks to send back to the local application.");
-				if(!mapLocals.isEmpty()) {
-							System.out.println("Manager (sealTheDealDaemon) :: mapLocals hash map is not empty, I have something to work on...");
-							System.out.println("Manager (sealTheDealDaemon) :: printing the mapLocals hash map...");
-							printHashMap(mapLocals);
-							for(ArrayList<InputFile> splits : mapLocals.values()) {
-								System.out.println("sealTheDealDaemon :: is running over some local application...");
-								//Iterate over one local application!!!
-								//Checks if done ALL work !!!
-								boolean done = true;
-								for (InputFile f : splits) {
-									done = true;
-									if(f.getDone() == false) {
-										System.out.println("sealTheDealDaemon :: "+f.getTaskUUID() +" task is yet to be completed...");
-										done = false;
-										break;
-									}
-								} 
-			
-								if(done) {
-									System.out.println("Manager (sealTheDealDaemon) :: this local application is done!!! Well done workers!");
-									StringBuilder allHTMLOutput = new StringBuilder();
-									String localUUID = null;
-									Boolean isTerminatedMessage = null;
-									for (InputFile f : splits) {
-										allHTMLOutput.append(f.getHTMLOutput());
-										if(localUUID == null) { 
-											localUUID = f.getLocalUUID();
-										}
-										if(isTerminatedMessage == null) {
-											isTerminatedMessage = f.getIsTerminated();
-										}
-									} 
-			
-									setAndPackUpLocalApplication(localUUID,allHTMLOutput,mapLocalsQueueURLS);
-									
-									//done serving this specific local application. now is it a termination message?
-									if(isTerminatedMessage) {
-											    terminate();
-											    System.out.println("Manager :: I just got a termination message. localApplicationHandler should finish in 50 sec.");
-											    //lets the local application handler enought time to finish...
-										  	    //sleeps for 50 seconds, this is the time we set for the workers to finish.
-											    //if they are not done within this amount of time - their screwed
-											    try {
-													Thread.sleep(50000);
-												} catch (InterruptedException e) {
-													// TODO Auto-generated catch block
-													e.printStackTrace();
-												} 
-											    
-												localApplicationHandler.interrupt();
-												workersHandler.interrupt();
-			
-											    Boolean done1 = true;
-												for (ArrayList<InputFile> splits1 : mapLocals.values()) {
-													done1 = true;
-													for (InputFile f1 : splits1) {
-														if(f1.getDone() == false) {
-															done1 = false;
-															break;
-														}
-													} 
-			
-													if(done1) {
-														StringBuilder allHTMLOutput1 = null;
-														String localUUID1 = null;	
-														allHTMLOutput1 = new StringBuilder();
-														
-														for (InputFile f : splits) {
-															allHTMLOutput1.append(f.getHTMLOutput());
-															if(localUUID1 == null) { 
-																localUUID1 = f.getLocalUUID();
+				while(true) {
+							System.out.println("Manager (sealTheDealDaemon) :: is running, searching for finished tasks to send back to the local application.");
+							if(!mapLocals.isEmpty()) {
+										System.out.println("Manager (sealTheDealDaemon) :: mapLocals hash map is not empty, I have something to work on...");
+										System.out.println("Manager (sealTheDealDaemon) :: printing the mapLocals hash map...");
+										printHashMap(mapLocals);
+										for(ArrayList<AtomicTask> tasks : mapLocals.values()) {
+															System.out.println("sealTheDealDaemon :: is running over some local application...");
+															//Iterate over one local application!!!
+															//Checks if done ALL work !!!
+															boolean done = true;
+															here:
+																for (AtomicTask f : tasks) {
+																	if(f.getDone() == false) {
+																		System.out.println("sealTheDealDaemon :: "+f.getTaskUUID() +" task is yet to be completed...");
+																		done = false;
+																		break here;
+																	}
+																} 
+							
+															if(done) {
+																			System.out.println("Manager (sealTheDealDaemon) :: this local application is done!!! Well done workers!");
+																			String localUUID = null;
+																			Boolean isTerminatedMessage = null;
+																			JSONArray AtomicAnalysisResultAsJSONArray = null;
+																			
+																			for (AtomicTask f : tasks) {
+																					try {
+																					
+																					    AtomicAnalysisResultAsJSONArray = concatArray(AtomicAnalysisResultAsJSONArray,new JSONArray(f.getAtomicAnalysisResult()));
+																					} catch (JSONException e) {
+																						// TODO Auto-generated catch block
+																						e.printStackTrace();
+																					}
+																					if(localUUID == null) { 
+																						localUUID = f.getLocalUUID();
+																					}
+																					if(isTerminatedMessage == null) {
+																						isTerminatedMessage = f.getIsTerminated();
+																					}
+																			} 
+										
+																			try {
+																				setAndPackUpLocalApplication(localUUID,AtomicAnalysisResultAsJSONArray.toString(),mapLocalsQueueURLS);
+																			} catch (IOException e1) {
+																				// TODO Auto-generated catch block
+																				e1.printStackTrace();
+																			}
+																			mapLocals.remove(localUUID);
+																			//done serving this specific local application. now is it a termination message?
+																			if(isTerminatedMessage) {
+																						terminate();
+																						System.out.println("Manager :: I just got a termination message. localApplicationHandler should finish in 10 sec.");
+																						//lets the local application handler enought time to finish...
+																						//sleeps for 50 seconds, this is the time we set for the workers to finish.
+																						//if they are not done within this amount of time - their screwed
+																						try {
+																							Thread.sleep(10000);
+																						} catch (InterruptedException e) {
+																							// TODO Auto-generated catch block
+																							e.printStackTrace();
+																						} 
+												
+																						//localApplicationHandler.interrupt();
+																						//workersHandler.interrupt();
+												
+																						Boolean doneForLeftOverLocalApplications = true;
+																						for (ArrayList<AtomicTask> tasksOfLeftOverLocalApplications : mapLocals.values()) {
+																							for (AtomicTask f1 : tasksOfLeftOverLocalApplications) {
+																								if(f1.getDone() == false) {
+																									doneForLeftOverLocalApplications = false;
+																									break;
+																								}
+																							} 
+												
+																							if(doneForLeftOverLocalApplications) {
+																								String AtomicAnalysisResultOfOtherLocals =  new String();
+																								String localUUIDofOtherLocals = null;	
+																								JSONArray AtomicAnalysisResultAsJSONArrayofOtherLocals = null;
+																								
+																								for (AtomicTask f : tasksOfLeftOverLocalApplications) {
+																									try {
+																										AtomicAnalysisResultAsJSONArrayofOtherLocals = concatArray(AtomicAnalysisResultAsJSONArrayofOtherLocals,new JSONArray(f.getAtomicAnalysisResult()));
+																									} catch (JSONException e) {
+																										// TODO Auto-generated catch block
+																										e.printStackTrace();
+																									}
+																									if(localUUIDofOtherLocals == null) { 
+																										localUUIDofOtherLocals = f.getLocalUUID();
+																									}
+																								}
+																								try {
+																									setAndPackUpLocalApplication(localUUIDofOtherLocals,AtomicAnalysisResultOfOtherLocals,mapLocalsQueueURLS);
+																								} catch (IOException e) {
+																									// TODO Auto-generated catch block
+																									e.printStackTrace();
+																								}	
+																							}
+																						}	
+																						//shutDownAllInstancesByTag("worker",accessKey,secretKey);
+																						//shutDownAllInstancesByTag("manager",accessKey,secretKey);
+																						//Thread.currentThread().interrupt();
+																						return;
+																			}		
 															}
-														}
-														setAndPackUpLocalApplication(localUUID1,allHTMLOutput1,mapLocalsQueueURLS);	
-													}
-												}	
-												shutDownAllInstancesByTag("worker",accessKey,secretKey);
-												shutDownAllInstancesByTag("manager",accessKey,secretKey);
-												Thread.currentThread().interrupt();
-												return;
-									}		
-								}
+															
+										}
 							}
-				}
+							try {
+								Thread.sleep(10000);
+							} catch (InterruptedException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							} //sleeps for 5 seconds
+						}
 			}
 		};
 		

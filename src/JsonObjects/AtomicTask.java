@@ -2,7 +2,7 @@ package JsonObjects;
 
 import java.util.UUID;
 
-public class InputFile {
+public class AtomicTask {
            private String startDate;
            private String endDate;
            private int speedThreshold;
@@ -10,15 +10,15 @@ public class InputFile {
            private double missThreshold;
            private Boolean done;
            private String taskUUID;
-           private StringBuilder HTMLOutput;
+           private String AtomicAnalysisResult;
            private String localUUID;
            private Boolean isTerminated;
            
-           public InputFile() {
+           public AtomicTask() {
 
            }  
 
-		   public InputFile(String startDate,String endDate,int speedThreshold,int diameterThreshold,double missThreshold,Boolean isTerminated) {
+		   public AtomicTask(String startDate,String endDate,int speedThreshold,int diameterThreshold,double missThreshold,Boolean isTerminated) {
 		       	this.startDate = startDate;
 		       	this.endDate = endDate;
 		       	this.speedThreshold = speedThreshold;
@@ -27,6 +27,18 @@ public class InputFile {
 		        this.taskUUID = UUID.randomUUID().toString();
 		        this.isTerminated = isTerminated;
            }
+			
+            public String getAtomicAnalysisResult() {
+			return AtomicAnalysisResult;
+			}
+	
+			public void setAtomicAnalysisResult(String atomicAnalysisResult) {
+				AtomicAnalysisResult = atomicAnalysisResult;
+			}
+	
+			public void setTaskUUID(String taskUUID) {
+				this.taskUUID = taskUUID;
+			}
 			
 	        public void setStartDate(String startDate) {
 				this.startDate = startDate;
@@ -57,9 +69,6 @@ public class InputFile {
 				this.done = flag;
 			}
 			
-			public void setHTMLOutput(StringBuilder HTMLOutput) {
-				this.HTMLOutput = HTMLOutput;
-			}
 
 			public String getStartDate() {
 				return startDate;
@@ -75,9 +84,6 @@ public class InputFile {
 	
 			public Boolean getDone() {
 				return this.done;
-			}
-			public StringBuilder getHTMLOutput() {
-				return this.HTMLOutput;
 			}
 			
 			public String getEndDate() {

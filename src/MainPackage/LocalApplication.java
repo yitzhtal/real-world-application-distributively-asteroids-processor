@@ -22,6 +22,10 @@ import java.util.Properties;
 import java.util.UUID;
 
 import org.apache.commons.codec.binary.Base64;
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,7 +37,7 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
-
+import com.amazonaws.services.s3.model.S3ObjectInputStream;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.AWSCredentials;
@@ -59,7 +63,8 @@ import com.amazonaws.util.IOUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
-import JsonObjects.InputFile;
+import JsonObjects.AtomicTask;
+import JsonObjects.Color;
 import JsonObjects.LocalApplicationMessage;
 import JsonObjects.SummaryFile;
 import JsonObjects.SummaryFileReceipt;
@@ -90,18 +95,21 @@ public class LocalApplication {
 	}
 
 
-    private static void displayTextInputStream(InputStream input)
+    @SuppressWarnings("unused")
+	private static String getStringFromInputStream(InputStream input)
     throws IOException {
     	// Read one text line at a time and display.
         BufferedReader reader = new BufferedReader(new 
         		InputStreamReader(input));
+        
+        String str = "";
         while (true) {
             String line = reader.readLine();
             if (line == null) break;
 
-            System.out.println("    " + line);
+           str = str + line;
         }
-        System.out.println();
+        return str;
     }
     
     static String join(Collection<String> s, String delimiter) {
@@ -161,7 +169,7 @@ public class LocalApplication {
     	return (tag.getValue().equals("manager") && state);
     }
 	
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, JSONException {
 		String inputFileName = args[0];
 		String outputFileName = args[1];
 		int n = Integer.parseInt(args[2]);
@@ -228,7 +236,6 @@ public class LocalApplication {
 			System.out.println("Local Application :: done. Now, I`m just waiting for the results... :)");
 			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(queueURLToGoBackTo,15,"Local Application");
 			
-			StringBuilder HTMLResult = null;
 			String fileNameBeforeHTML = null,localUUID = null;
 			SummaryFileReceipt r = null;
 			for (Message msg : result) { 
@@ -238,15 +245,20 @@ public class LocalApplication {
 			
 			  AmazonS3 s3Client = new AmazonS3Client(new ProfileCredentialsProvider());
 		      System.out.println("Local Application :: Downloading the summary file receipt I just got from the manager :)");
-		      S3Object s3object = s3Client.getObject(new GetObjectRequest(
-		      bucketName, r.getSummaryFileName()));
-		      SummaryFile s = new Gson().fromJson(s3object.getObjectMetadata().getContentType(), SummaryFile.class);
-		      HTMLResult = s.getHTMLResult();
+		      S3Object s3object = s3Client.getObject(new GetObjectRequest(bucketName, r.getSummaryFileName()));
+		      S3ObjectInputStream contentFromS3 = s3object.getObjectContent();
+		
+		      String contentAsJson = getStringFromInputStream(contentFromS3);	      
+		      System.out.println("Local Application :: the content of the summary file receipt as json is: " +contentAsJson);
+		      SummaryFile s = new Gson().fromJson(contentAsJson,SummaryFile.class);
+		      String AtomicAnalysisResult = s.getAtomicAnalysisResult();
+		      JSONArray AtomicAnalysisResultAsJsonArray = new JSONArray(AtomicAnalysisResult);
 		      localUUID = s.getLocalUUID();
 				
 		      //Creating the html file with the summary file brought by the manager...
-				
-			  File file = new File(outputFileName);
+
+			  
+		      File file = new File(outputFileName + ".html");
 			 
 			  if(file.exists()) {
 	  			            System.out.println("File already exists! WTF, Dude...");
@@ -256,7 +268,33 @@ public class LocalApplication {
 							fileWriter = new FileWriter(file);
 		  			        bufferedWriter = new BufferedWriter(fileWriter);	  		
 							bufferedWriter.write(readFile("beginning.html",StandardCharsets.UTF_8));
-							bufferedWriter.write(HTMLResult.toString());
+
+							for (int i = 0; i < AtomicAnalysisResultAsJsonArray.length(); i++) {
+								        String AtomicAnalysisAsString = (String) AtomicAnalysisResultAsJsonArray.get(i);
+										JsonObjects.AtomicAnalysis o =  new Gson().fromJson(AtomicAnalysisAsString, JsonObjects.AtomicAnalysis.class);
+										if(o.getDanger().getValue() == 1) { //green
+											System.out.println("danger color is :: " + o.getDanger());
+											bufferedWriter.write("<tr bgcolor=#00ff00>");
+										} else if(o.getDanger().getValue() == 3) { //yellow
+											System.out.println("danger color is :: " + o.getDanger());
+											bufferedWriter.write("<tr bgcolor=#FFff00>");
+										} else if(o.getDanger().getValue() == 2) { //red
+											bufferedWriter.write("<tr bgcolor=#FF0000>");
+											System.out.println("danger color is :: " + o.getDanger());
+										} else {
+											bufferedWriter.write("<tr>");
+											System.out.println("danger color is default");
+										}
+										
+										bufferedWriter.write("<td>" + o.getNameAsteroid() +"</td>");
+										bufferedWriter.write("<td>" + o.getClose_approach_data() +"</td>");
+										bufferedWriter.write("<td>" + o.getVelocity() +"</td>");
+										bufferedWriter.write("<td>" + o.getEstimated_diameter_min() +"</td>");
+										bufferedWriter.write("<td>" + o.getEstimated_diameter_max()+"</td>");
+										bufferedWriter.write("<td>" + o.getMiss_distance_kilometers() +"</td>");	
+										bufferedWriter.write("</tr>");			
+							}
+
 							bufferedWriter.write(readFile("end.html",StandardCharsets.UTF_8));
 		    			    System.out.println("LocalApplication :: Thanks for the summary file! I have created the HTML!");
 							bufferedWriter.flush();
