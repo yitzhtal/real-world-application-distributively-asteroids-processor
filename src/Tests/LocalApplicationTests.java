@@ -1,7 +1,7 @@
 package Tests;
 
 import org.junit.*;
-import org.mockito.Mockito;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -13,8 +13,9 @@ import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
 import MainPackage.LocalApplication;
 import MainPackage.mySQS;
 
+import static com.sun.xml.internal.ws.dump.LoggingDumpTube.Position.Before;
 import static org.junit.Assert.*;
-import static org.mockito.Mockito.*;
+
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;

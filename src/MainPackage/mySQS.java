@@ -66,7 +66,7 @@ public class mySQS {
 	       return messages;
 	    }
 	    
-	    public List<Message> awaitMessagesFromQueue(String queueUrl,int n){
+	    public List<Message> awaitMessagesFromQueue(String queueUrl,int n,String entity){
 		       ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(queueUrl);
 		       receiveMessageRequest.setWaitTimeSeconds(n);
 
@@ -74,7 +74,7 @@ public class mySQS {
 		       
 		       while(messages.isEmpty()) {
 		    	     messages = sqs.receiveMessage(receiveMessageRequest).getMessages(); 
-		    	     System.out.println("mySQS :: local application is still waiting for results...");
+		    	     System.out.println("mySQS :: "+entity+" is still waiting for results...");
 		       }
 		       return messages;
 		}
