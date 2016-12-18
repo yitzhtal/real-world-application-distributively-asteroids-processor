@@ -70,10 +70,10 @@ public class mySQS {
 	    public List<Message> awaitMessagesFromQueue(String queueUrl,int n,String entity){
 		       ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(queueUrl);
 		       receiveMessageRequest.setWaitTimeSeconds(n);
-
-		       List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
 		       
-		       while(messages.isEmpty()) {
+		       List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
+		       System.out.println("mySQS ::  awaitMessagesFromQueue() was just called with terminate = " + Manager.isTerminate());
+		       while(messages.isEmpty() && !Manager.isTerminate()) {
 		    	     messages = sqs.receiveMessage(receiveMessageRequest).getMessages(); 
 		    	     System.out.println("mySQS :: "+entity+" is still waiting for results...");
 		       }

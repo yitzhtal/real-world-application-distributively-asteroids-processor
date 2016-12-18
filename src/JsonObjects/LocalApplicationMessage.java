@@ -20,6 +20,10 @@ public class LocalApplicationMessage {
 			this.UUID = UUID;
 			this.isTerminatedMessage = isTerminatedMessage;
 		}
+		
+		public LocalApplicationMessage(Boolean isTerminatedMessage) {
+			this.isTerminatedMessage = isTerminatedMessage;
+		}
 
 		public Boolean getIsTerminatedMessage() {
 			return isTerminatedMessage;

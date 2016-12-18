@@ -1,5 +1,6 @@
 package MainPackage;
 
+import java.awt.Color;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -64,6 +65,7 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
 import JsonObjects.AtomicTask;
+import JsonObjects.DangerColor;
 import JsonObjects.LocalApplicationMessage;
 import JsonObjects.SummaryFile;
 import JsonObjects.SummaryFileReceipt;
@@ -274,18 +276,18 @@ public class LocalApplication {
 							
 										System.out.println("DANGER COLOR IS ACTUALLY " + o.getDanger().toString());
 										
-										if(o.getDanger().equals("GREEN")) { //green
+										if(o.getDanger() == DangerColor.GREEN) { //green
 											System.out.println("danger color is :: " + o.getDanger());
 											bufferedWriter.write("<tr bgcolor=#00ff00>");
-										} else if(o.getDanger().equals("YELLOW")) { //yellow
+										} else if(o.getDanger() == DangerColor.YELLOW) { //yellow
 											System.out.println("danger color is :: " + o.getDanger());
 											bufferedWriter.write("<tr bgcolor=#FFff00>");
-										} else if(o.getDanger().equals("RED")) { //red
+										} else if(o.getDanger() == DangerColor.RED) { //red
 											bufferedWriter.write("<tr bgcolor=#FF0000>");
 											System.out.println("danger color is :: " + o.getDanger());
 										} else {
 											bufferedWriter.write("<tr>");
-											System.out.println("danger color is default");
+											System.out.println("danger color is " + o.getDanger());
 										}
 										
 										bufferedWriter.write("<td>" + o.getNameAsteroid() +"</td>");

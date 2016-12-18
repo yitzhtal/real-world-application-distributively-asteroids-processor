@@ -27,6 +27,10 @@ public class AtomicTask {
 		        this.taskUUID = UUID.randomUUID().toString();
 		        this.isTerminated = isTerminated;
            }
+		   
+		   public AtomicTask(Boolean isTerminated) {
+		        this.isTerminated = isTerminated;
+           }
 			
             public String getAtomicAnalysisResult() {
 			return AtomicAnalysisResult;
