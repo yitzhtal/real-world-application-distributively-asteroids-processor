@@ -11,6 +11,7 @@ import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.TerminateInstancesRequest;
 
 import MainPackage.LocalApplication;
+import MainPackage.Manager;
 import MainPackage.mySQS;
 
 import static com.sun.xml.internal.ws.dump.LoggingDumpTube.Position.Before;
@@ -22,6 +23,12 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Properties; 
 
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
+import org.junit.Test;
+import org.junit.runners.Parameterized.Parameters;
+
+
 @Component
 public class LocalApplicationTests {
 
@@ -30,6 +37,7 @@ public class LocalApplicationTests {
 	private String accessKey;
 	private String secretKey;
 	private AmazonEC2Client ec2;
+	private Manager m;
 	
 	@Before
 	public void initialize() {
@@ -71,5 +79,14 @@ public class LocalApplicationTests {
 		  }
 		  System.out.println("testHasManager() is awake!");
 		  assertEquals(LocalApplication.hasManager(ec2),true);
+	}
+	
+	@Test
+	public void testAfterThatTime() {
+		assertEquals(true,Manager.afterThatDate("2017-01-31","2017-01-26"));
+		assertEquals(true,Manager.afterThatDate("2017-01-31","2017-01-27"));
+		assertEquals(true,Manager.afterThatDate("2017-01-31","2017-01-28"));
+		assertEquals(true,Manager.afterThatDate("2017-01-31","2017-01-29"));
+		assertEquals(true,Manager.afterThatDate("2017-01-31","2017-01-30"));
 	}
 }

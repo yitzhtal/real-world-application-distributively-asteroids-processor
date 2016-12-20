@@ -35,7 +35,8 @@ import enums.DangerColor;
 public class Worker {
 	
 	private volatile static boolean terminated = false;
-	
+	//return true if currentEndDate is after endDate.
+
 	public static void main(String[] args) throws Exception {
 			
 		/* credentials handling ...  */
@@ -71,7 +72,7 @@ public class Worker {
 					    String s = msg.getBody(); 
 					    w = new Gson().fromJson(s, WorkerMessage.class);
 					    if(w.getType().equals("AtomicTask")) {
-					    	    task = new Gson().fromJson(w.getContent(), AtomicTask.class);  	
+					    	    task = new Gson().fromJson(w.getContent(), AtomicTask.class);  
 							    mySQS.getInstance().deleteMessageFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),msg); 
 				                startDate = task.getStartDate();
 				                endDate = task.getEndDate();
@@ -82,9 +83,9 @@ public class Worker {
 				      	    
 				      	        String url = "https://api.nasa.gov/neo/rest/v1/feed?start_date="
 				      	      		+ startDate
-				      	      		+ "&"
+				      	      		+ "&end_date="
 				      	      		+ endDate
-				      	      		+ "=END_DATE&api_key=GG5T9i8vucmdDrRi3AgwU2aONZzLNHvos332Ch6a";
+				      	      		+ "&api_key=GG5T9i8vucmdDrRi3AgwU2aONZzLNHvos332Ch6a";
 					     
 				      			URL obj = new URL(url);
 				      			HttpURLConnection con = (HttpURLConnection) obj.openConnection();
@@ -134,25 +135,22 @@ public class Worker {
 					      					DangerColor danger = DangerColor.DEFAULT;
 					      					
 					      					if(isHazardous) {
-						      					if(velocity >= speedThreshold) { //green
-						      						danger = DangerColor.GREEN;
-						      						System.out.println("Worker :: has changed danger to GREEN");
-						      					}
-						      					
-						      					if(velocity >= speedThreshold && estimated_diameter_min >= diameterThreshold) { //yellow
-						      						danger = DangerColor.YELLOW;
-						      						System.out.println("Worker :: has changed danger to YELLOW");
-						      					}
-						      					
-						      					if(velocity >= speedThreshold && estimated_diameter_min >= diameterThreshold && Double.parseDouble(miss_distance_kilometers) >= missThreshold) { //red
-						      						danger = DangerColor.RED;
-						      						System.out.println("Worker :: has changed danger to RED");
-						      					} 
+							      					if(velocity >= speedThreshold) { //green
+								      						danger = DangerColor.GREEN;
+									      					if(estimated_diameter_min >= diameterThreshold) { //yellow
+										      						danger = DangerColor.YELLOW;
+										      						System.out.println(Double.parseDouble(miss_distance_astronomical) + " >? " + missThreshold);
+											      					if(Double.parseDouble(miss_distance_astronomical) >= missThreshold) { //red
+											      						danger = DangerColor.RED;
+											      					} 
+									      					}
+							      					}
 					      					}
 					      					
 					      					AtomicAnalysis analysis = new AtomicAnalysis(nameAsteroid,close_approach_data_string,velocity,
 					      							estimated_diameter_min, estimated_diameter_max, miss_distance_kilometers,
 					      							danger);
+					      					
 					      					ja.put(new Gson().toJson(analysis));
 						      				
 				      				}
@@ -161,13 +159,6 @@ public class Worker {
 				      			String analysisRes = ja.toString();		
 				      			task.setDone(true);
 				      			task.setAtomicAnalysisResult(analysisRes);
-				    			System.out.println("----------------------------------------");
-				    			System.out.println("----------------------------------------");
-				    			System.out.println("----------------------------------------");
-				      			System.out.println(analysisRes);
-				    			System.out.println("----------------------------------------");
-				    			System.out.println("----------------------------------------");
-				    			System.out.println("----------------------------------------");
 				      			mySQS.getInstance().sendMessageToQueue(Manager.managerListener,new Gson().toJson(task));					    		
 					    }
 					    

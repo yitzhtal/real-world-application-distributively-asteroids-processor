@@ -75,7 +75,7 @@ import enums.DangerColor;
 
 public class LocalApplication {	
 
-	static final String bucketName                           = "real-world-application-asteroids";
+	static final String bucketName                           		 = "real-world-application-asteroids";
 	private static final String credentialsFileName                  = "AWSCredentials.zip";
 	public static final String All_local_applications_queue_name     = "all_local_applications_to_manager";
 	
@@ -98,9 +98,7 @@ public class LocalApplication {
 		return new String(encoded, encoding);
 	}
 
-
-    @SuppressWarnings("unused")
-	private static String getStringFromInputStream(InputStream input)
+    private static String getStringFromInputStream(InputStream input)
     throws IOException {
     	// Read one text line at a time and display.
         BufferedReader reader = new BufferedReader(new 
@@ -272,7 +270,10 @@ public class LocalApplication {
 		      
 		      Collections.sort( AtomicAnalysisResultAsArrayList, new Comparator<AtomicAnalysis>() {
 		          public int compare(AtomicAnalysis a, AtomicAnalysis b) {
-		              return a.getDanger().getId() - b.getDanger().getId();
+		              int res = a.getDanger().getId() - b.getDanger().getId();
+		              if(res != 0) return res;
+		              double res2 = Double.parseDouble(a.getMiss_distance_kilometers()) - Double.parseDouble(b.getMiss_distance_kilometers());
+		              return (int) res2;
 		          }
 		      });
 		        
@@ -294,30 +295,26 @@ public class LocalApplication {
 
 							for (int i = 0; i < AtomicAnalysisResultAsArrayList.size(); i++) {
 										JsonObjects.AtomicAnalysis o =  AtomicAnalysisResultAsArrayList.get(i);
-							
-										System.out.println("DANGER COLOR IS ACTUALLY " + o.getDanger().toString());
 										
 										if(o.getDanger() == DangerColor.GREEN) { //green
-											System.out.println("danger color is :: " + o.getDanger());
 											bufferedWriter.write("<tr bgcolor=#00ff00>");
 										} else if(o.getDanger() == DangerColor.YELLOW) { //yellow
-											System.out.println("danger color is :: " + o.getDanger());
 											bufferedWriter.write("<tr bgcolor=#FFff00>");
 										} else if(o.getDanger() == DangerColor.RED) { //red
 											bufferedWriter.write("<tr bgcolor=#FF0000>");
-											System.out.println("danger color is :: " + o.getDanger());
 										} else {
 											bufferedWriter.write("<tr>");
-											System.out.println("danger color is " + o.getDanger());
 										}
 										
-										bufferedWriter.write("<td>" + o.getNameAsteroid() +"</td>");
-										bufferedWriter.write("<td>" + o.getClose_approach_data() +"</td>");
-										bufferedWriter.write("<td>" + o.getVelocity() +"</td>");
-										bufferedWriter.write("<td>" + o.getEstimated_diameter_min() +"</td>");
-										bufferedWriter.write("<td>" + o.getEstimated_diameter_max()+"</td>");
-										bufferedWriter.write("<td>" + o.getMiss_distance_kilometers() +"</td>");	
-										bufferedWriter.write("</tr>");			
+										if(o.getDanger() != DangerColor.DEFAULT) {
+											bufferedWriter.write("<td>" + o.getNameAsteroid() +"</td>");
+											bufferedWriter.write("<td>" + o.getClose_approach_data() +"</td>");
+											bufferedWriter.write("<td>" + o.getVelocity() +"</td>");
+											bufferedWriter.write("<td>" + o.getEstimated_diameter_min() +"</td>");
+											bufferedWriter.write("<td>" + o.getEstimated_diameter_max()+"</td>");
+											bufferedWriter.write("<td>" + o.getMiss_distance_kilometers() +"</td>");	
+											bufferedWriter.write("</tr>");		
+										} 
 							}
 
 							bufferedWriter.write(readFile("end.html",StandardCharsets.UTF_8));

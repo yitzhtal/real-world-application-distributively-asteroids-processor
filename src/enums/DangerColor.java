@@ -1,7 +1,7 @@
 package enums;
 
 public enum DangerColor {
-    RED(0),GREEN(2),YELLOW(1),DEFAULT(3);
+    RED(0),YELLOW(1),GREEN(2),DEFAULT(3);
     
     private final int id;
 	

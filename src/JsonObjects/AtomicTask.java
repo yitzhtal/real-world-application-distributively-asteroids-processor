@@ -26,6 +26,7 @@ public class AtomicTask {
 		        this.done = false;
 		        this.taskUUID = UUID.randomUUID().toString();
 		        this.isTerminated = isTerminated;
+		        this.missThreshold = missThreshold;
            }
 		   
 		   public AtomicTask(Boolean isTerminated) {

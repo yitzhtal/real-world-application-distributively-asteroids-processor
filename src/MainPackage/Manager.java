@@ -14,6 +14,8 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Properties;
+import java.util.Scanner;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -179,7 +181,38 @@ public class Manager {
 		createTagsRequest.withResources(instances.get(0).getInstanceId()).withTags(new Tag("name","worker"));
 		ec2.createTags(createTagsRequest);
 	}
-
+	
+	public static void printJsonArray(JSONArray printMe) throws JSONException {
+		if(printMe == null) {
+			System.out.println("Null");
+			return ;
+		} else {
+			for(int i=0; i<printMe.length();i++) {
+				System.out.println(printMe.get(i) + " , ");
+			}
+		}
+	}
+	
+	public static boolean afterThatDate(String currentEndDate, String endDate) {
+		if(currentEndDate == null || endDate == null) return false;
+		
+		String[] currentEndDateParts = currentEndDate.split("-");
+		
+		String currentEndDateYear = currentEndDateParts[0]; 
+		String currentEndDateMonth = currentEndDateParts[1]; 	
+		String currentEndDateDay = currentEndDateParts[2]; 	
+		
+		String[] endDateParts = endDate.split("-");
+		String endDateYear = endDateParts[0]; 
+		String endDateMonth = endDateParts[1]; 	
+		String endDateDay = endDateParts[2]; 
+		
+		if(Integer.parseInt(currentEndDateYear) > Integer.parseInt(endDateYear)) return true;
+		if((Integer.parseInt(currentEndDateYear) == Integer.parseInt(endDateYear)) && (Integer.parseInt(currentEndDateMonth) > Integer.parseInt(endDateMonth))) return true;
+		if((Integer.parseInt(currentEndDateYear) == Integer.parseInt(endDateYear)) && (Integer.parseInt(currentEndDateMonth) == Integer.parseInt(endDateMonth)) &&  (Integer.parseInt(currentEndDateDay) > Integer.parseInt(endDateDay))) return true;		
+		return false;
+	}
+	
 	public static ArrayList<AtomicTask> splitWorkAmongsWorkers(AtomicTask input, int d){
 		Calendar cal1 = new GregorianCalendar();
 		Calendar cal2 = new GregorianCalendar();
@@ -204,24 +237,34 @@ public class Manager {
 		int days = howManyDaysBetween(cal1.getTime(),cal2.getTime());
 		ArrayList<AtomicTask> tasks = new ArrayList<AtomicTask>();
 
-		int day_per_task = d;
+		int day_per_task = d-1;
 		int count = 0;
-		while(count != days) {
+		String end = null;
+		while(count <= days) {
 
 			//the last "work" is not "complete"
 			if(days - count < d) {
-				day_per_task = days % d;
+				day_per_task = days - count;
 			}
 
 			String start = sdf.format(cal1.getTime());
 			cal1.add(Calendar.DATE, day_per_task);
-			String end = sdf.format(cal1.getTime());
-			AtomicTask split = new AtomicTask(start,end,input.getSpeedThreshold(),input.getDiameterThreshold(),input.getDiameterThreshold(),input.getIsTerminated());
+			end = sdf.format(cal1.getTime());
+			AtomicTask split = new AtomicTask(start,end,input.getSpeedThreshold(),input.getDiameterThreshold(),input.getMissThreshold(),input.getIsTerminated());
 			split.setDone(false);
+			//sets this small piece of work a whole new UUID for the workers to think about working on different tasks!
 			split.setLocalUUID(input.getLocalUUID());
+			split.setTaskUUID(UUID.randomUUID().toString());
 			tasks.add(split);
 			//System.out.println(start+" - "+ end);
-			count += day_per_task;
+			count += day_per_task+1;
+			cal1.add(Calendar.DATE, 1);
+			if(afterThatDate(sdf.format(cal1.getTime()),input.getEndDate())) {
+				     System.out.println(sdf.format(cal1.getTime()) + "is after the time"+input.getEndDate() );
+					 return tasks;
+			} else {
+					 System.out.println(sdf.format(cal1.getTime()) + "is before the time"+input.getEndDate() );
+			}
 		}
 		return tasks;
 	}
@@ -458,15 +501,17 @@ public class Manager {
 								//puts in the relevant hash map...
 								mapLocals.put(UUID,splits);
 			
-								System.out.println("Manager (localApplicationHandler) :: printing the hash map:");
-								printHashMap(mapLocals);
-			
 								for(int i=0; i< numberOfWorkersToCreate; i++) {
 									//System.out.println("Manager (localApplicationHandler) :: creating a worker!");
 									//createAndRunWorker(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0");
-									currentNumberOfWorkers.incrementAndGet();
+									//currentNumberOfWorkers.incrementAndGet();
+									
 								}
-			
+								currentNumberOfWorkers.incrementAndGet();
+								currentNumberOfWorkers.incrementAndGet();
+								
+								System.out.println("Manager (localApplicationHandler) :: currentNumberOfWorkers after calculation is = "+currentNumberOfWorkers.get());
+								
 								// move all splits towards the workers for them to handle...
 								for (AtomicTask f : splits) {
 									WorkerMessage w = new WorkerMessage("AtomicTask",new Gson().toJson(f));
@@ -475,10 +520,8 @@ public class Manager {
 								}
 			
 							}
-							System.out.println("Mangaer :: locals thread was just stopped. I`m done on accepting new local application requests.");
-							System.out.println("terminated = " + terminated);
-							System.out.println("Mangaer :: locals thread has shut down and will never run again here!");
 				}
+				
 				return;
 			}
 		};
@@ -504,7 +547,7 @@ public class Manager {
 									if(tasks != null) {
 										for (AtomicTask f : tasks) {
 											if(f.getTaskUUID().equals(AtomicTaskFromWorker.getTaskUUID())) {
-												if(f.getDone() == false) {
+												if(!f.getDone()) {
 													System.out.println("Manager (workersHandler) :: " + f.getTaskUUID() + " task is marked as DONE !!!");    
 													f.setDone(true);
 													f.setAtomicAnalysisResult(AtomicTaskFromWorker.getAtomicAnalysisResult());
@@ -557,7 +600,9 @@ public class Manager {
 								Boolean isTerminationMessage = null;
 								for (AtomicTask f : tasks) {
 									try {
-										AtomicAnalysisResultAsJSONArray = concatArray(AtomicAnalysisResultAsJSONArray,new JSONArray(f.getAtomicAnalysisResult()));
+										JSONArray a = new JSONArray(f.getAtomicAnalysisResult());
+										AtomicAnalysisResultAsJSONArray = concatArray(AtomicAnalysisResultAsJSONArray,a);
+										
 									} catch (JSONException e) {
 										// TODO Auto-generated catch block
 										e.printStackTrace();
@@ -580,7 +625,10 @@ public class Manager {
 								//done serving this specific local application. now is it a termination message?
 								if(isTerminationMessage) {
 									WorkerMessage t = new WorkerMessage("TerminationMessage",new Gson().toJson(new TerminationMessage(true)));
-									mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(t));
+									for(int i=0; i < currentNumberOfWorkers.get(); i++) {
+												System.out.println("Sends " + currentNumberOfWorkers.get()+ " termination messages to workers.");
+												mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(t));
+									}
 									System.out.println("Manager (sealTheDealDaemon) :: Calling shutDownAllSystem()");
 									shutDownAllSystem(localApplicationHandler,workersHandler,mapLocals,mapLocalsQueueURLS);
 								}
