@@ -28,9 +28,9 @@ import com.google.gson.Gson;
 
 import JsonObjects.AtomicAnalysis;
 import JsonObjects.AtomicTask;
-import JsonObjects.DangerColor;
 import JsonObjects.TerminationMessage;
 import JsonObjects.WorkerMessage;
+import enums.DangerColor;
 
 public class Worker {
 	
@@ -172,6 +172,7 @@ public class Worker {
 					    }
 					    
 					    if(w.getType().equals("TerminationMessage")) {
+					    	    mySQS.getInstance().deleteMessageFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),msg); 
 					    	 	t = new Gson().fromJson(w.getContent(), TerminationMessage.class);  	
 					    	 	if(t.isTerminate()) {
 					    	 			System.out.println("----------------------------------------");

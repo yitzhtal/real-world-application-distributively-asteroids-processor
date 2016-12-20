@@ -17,6 +17,8 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Properties;
@@ -64,11 +66,12 @@ import com.amazonaws.util.IOUtils;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 
+import JsonObjects.AtomicAnalysis;
 import JsonObjects.AtomicTask;
-import JsonObjects.DangerColor;
 import JsonObjects.LocalApplicationMessage;
 import JsonObjects.SummaryFile;
 import JsonObjects.SummaryFileReceipt;
+import enums.DangerColor;
 
 public class LocalApplication {	
 
@@ -254,6 +257,25 @@ public class LocalApplication {
 		      SummaryFile s = new Gson().fromJson(contentAsJson,SummaryFile.class);
 		      String AtomicAnalysisResult = s.getAtomicAnalysisResult();
 		      JSONArray AtomicAnalysisResultAsJsonArray = new JSONArray(AtomicAnalysisResult);
+		      
+		      //convert to ArrayList, so we can use Collections.sort()...
+
+			  ArrayList<AtomicAnalysis> AtomicAnalysisResultAsArrayList = new ArrayList<AtomicAnalysis>();     
+
+			  if(AtomicAnalysisResultAsJsonArray != null) { 
+					   for (int i=0; i<AtomicAnalysisResultAsJsonArray.length(); i++) { 
+						   String atomicString = (String) AtomicAnalysisResultAsJsonArray.get(i);
+						   JsonObjects.AtomicAnalysis o = new Gson().fromJson(atomicString, JsonObjects.AtomicAnalysis.class);
+						   AtomicAnalysisResultAsArrayList.add(o);
+					   } 
+			  } 
+		      
+		      Collections.sort( AtomicAnalysisResultAsArrayList, new Comparator<AtomicAnalysis>() {
+		          public int compare(AtomicAnalysis a, AtomicAnalysis b) {
+		              return a.getDanger().getId() - b.getDanger().getId();
+		          }
+		      });
+		        
 		      localUUID = s.getLocalUUID();
 				
 		      //Creating the html file with the summary file brought by the manager...
@@ -270,9 +292,8 @@ public class LocalApplication {
 		  			        bufferedWriter = new BufferedWriter(fileWriter);	  		
 							bufferedWriter.write(readFile("beginning.html",StandardCharsets.UTF_8));
 
-							for (int i = 0; i < AtomicAnalysisResultAsJsonArray.length(); i++) {
-								        String AtomicAnalysisAsString = (String) AtomicAnalysisResultAsJsonArray.get(i);
-										JsonObjects.AtomicAnalysis o =  new Gson().fromJson(AtomicAnalysisAsString, JsonObjects.AtomicAnalysis.class);
+							for (int i = 0; i < AtomicAnalysisResultAsArrayList.size(); i++) {
+										JsonObjects.AtomicAnalysis o =  AtomicAnalysisResultAsArrayList.get(i);
 							
 										System.out.println("DANGER COLOR IS ACTUALLY " + o.getDanger().toString());
 										

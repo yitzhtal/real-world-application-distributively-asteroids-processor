@@ -2,6 +2,8 @@ package JsonObjects;
 
 import org.json.JSONObject;
 
+import enums.DangerColor;
+
 public class AtomicAnalysis {
 	private String nameAsteroid;
 	private String close_approach_data;
