@@ -80,6 +80,7 @@ public class Manager {
 	public static final String workersListener         = "workersListener";
 	public static final String managerListener         = "managerListener";
 	private final static AtomicInteger currentNumberOfWorkers = new AtomicInteger();
+	private final static AtomicInteger currentNumberOfTerminationMessages = new AtomicInteger();
 	private volatile static boolean terminated = false;
 	public static final int sealTheDealDelay = 10;	
 	
@@ -213,25 +214,16 @@ public class Manager {
 		return false;
 	}
 	
-	public static ArrayList<AtomicTask> splitWorkAmongsWorkers(AtomicTask input, int d){
+	public static ArrayList<AtomicTask> splitWorkAmongsWorkers(AtomicTask input, int d) throws ParseException{
 		Calendar cal1 = new GregorianCalendar();
 		Calendar cal2 = new GregorianCalendar();
 
 		SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
 
 		Date date = null;
-		try {
-			date = sdf.parse(input.getStartDate());
-		} catch (ParseException e) {
-			e.printStackTrace();
-		}
-
+		date = sdf.parse(input.getStartDate());
 		cal1.setTime(date);
-		try {
-			date = sdf.parse(input.getEndDate());
-		} catch (ParseException e) {
-			e.printStackTrace();
-		}
+		date = sdf.parse(input.getEndDate());
 		cal2.setTime(date);
 
 		int days = howManyDaysBetween(cal1.getTime(),cal2.getTime());
@@ -256,24 +248,24 @@ public class Manager {
 			split.setLocalUUID(input.getLocalUUID());
 			split.setTaskUUID(UUID.randomUUID().toString());
 			tasks.add(split);
-			//System.out.println(start+" - "+ end);
 			count += day_per_task+1;
 			cal1.add(Calendar.DATE, 1);
-			if(afterThatDate(sdf.format(cal1.getTime()),input.getEndDate())) {
-				     System.out.println(sdf.format(cal1.getTime()) + "is after the time"+input.getEndDate() );
-					 return tasks;
-			} else {
-					 System.out.println(sdf.format(cal1.getTime()) + "is before the time"+input.getEndDate() );
-			}
+			//if(afterThatDate(sdf.format(cal1.getTime()),input.getEndDate())) {
+				     //System.out.println(sdf.format(cal1.getTime()) + "is after the time"+input.getEndDate() );
+					 //return tasks;
+			//} else {
+					// System.out.println(sdf.format(cal1.getTime()) + "is before the time"+input.getEndDate() );
+			//}
 		}
 		return tasks;
 	}
 
-	public static void shutDownAllSystem(Thread localApplicationHandler,Thread workersHandler,ConcurrentHashMap<String, ArrayList<AtomicTask>> mapLocals,ConcurrentHashMap<String, String> mapLocalsQueueURLS) {
+	public static void shutDownAllSystem(Thread localApplicationHandler,Thread workersHandler,ConcurrentHashMap<String, ArrayList<AtomicTask>> mapLocals,ConcurrentHashMap<String, String> mapLocalsQueueURLS,String accessKey,String secretKey) {
 		System.out.println("Manager :: I just got a termination message.");
 		terminate();
-		Boolean doneForLeftOverLocalApplications = true;
+		Boolean doneForLeftOverLocalApplications = null;
 		for (ArrayList<AtomicTask> tasksOfLeftOverLocalApplications : mapLocals.values()) {
+			doneForLeftOverLocalApplications = true;
 			for (AtomicTask f1 : tasksOfLeftOverLocalApplications) {
 				if(f1.getDone() == false) {
 					doneForLeftOverLocalApplications = false;
@@ -282,13 +274,13 @@ public class Manager {
 			} 
 
 			if(doneForLeftOverLocalApplications) {
-				String AtomicAnalysisResultOfOtherLocals =  new String();
 				String localUUIDofOtherLocals = null;	
 				JSONArray AtomicAnalysisResultAsJSONArrayofOtherLocals = null;
 
 				for (AtomicTask f : tasksOfLeftOverLocalApplications) {
 					try {
-						AtomicAnalysisResultAsJSONArrayofOtherLocals = concatArray(AtomicAnalysisResultAsJSONArrayofOtherLocals,new JSONArray(f.getAtomicAnalysisResult()));
+						JSONArray a = new JSONArray(f.getAtomicAnalysisResult());
+						AtomicAnalysisResultAsJSONArrayofOtherLocals = concatArray(AtomicAnalysisResultAsJSONArrayofOtherLocals,a);
 					} catch (JSONException e) {
 						// TODO Auto-generated catch block
 						e.printStackTrace();
@@ -298,7 +290,7 @@ public class Manager {
 					}
 				}
 				try {
-					setAndPackUpLocalApplication(localUUIDofOtherLocals,AtomicAnalysisResultOfOtherLocals,mapLocalsQueueURLS);
+					setAndPackUpLocalApplication(localUUIDofOtherLocals,AtomicAnalysisResultAsJSONArrayofOtherLocals.toString(),mapLocalsQueueURLS,accessKey,secretKey);
 				} catch (IOException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -311,7 +303,9 @@ public class Manager {
 	}	
 
 	@SuppressWarnings("resource")
-	public static void setAndPackUpLocalApplication(String localUUID, String AtomicAnalysisResult,ConcurrentHashMap<String, String> mapLocalsQueueURLS) throws IOException {
+	public static void setAndPackUpLocalApplication(String localUUID, String AtomicAnalysisResult,ConcurrentHashMap<String, String> mapLocalsQueueURLS,String accessKey,String secretKey) throws IOException {
+		System.out.println("inside setAndPackUpLocalApplication()....");
+		System.out.println("AtomicAnalysisResult="+AtomicAnalysisResult);
 		String fileNameBeforeHTML = "AsteroidsAnalysis-" + localUUID;
 
 		SummaryFile s = new SummaryFile(AtomicAnalysisResult,localUUID);
@@ -326,7 +320,7 @@ public class Manager {
 			// do something
 		}
 
-		LocalApplication.uploadFileToS3(fileNameBeforeHTML);
+		LocalApplication.uploadFileToS3(fileNameBeforeHTML,accessKey,secretKey);
 		String urlToFile = "https://"
 				+ LocalApplication.bucketName
 				+ "."
@@ -384,7 +378,7 @@ public class Manager {
 		/* credentials handling ...  */
 
 		Properties properties = new Properties();
-		String path = "C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties";  //"C:/Users/assaf/Downloads/AWSCredentials.properties";
+		String path = "C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties";  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
 		try {
 			properties.load(new FileInputStream(path));
 		} catch (FileNotFoundException e1) {
@@ -491,33 +485,48 @@ public class Manager {
 								} else {
 									System.out.println("Manager :: Error! keyName = "+keyName + ", bucketName = "+bucketName);
 								}
-			
-								System.out.println("Manager (localApplicationHandler) :: split the work amongs the workers...");
-			
-								ArrayList<AtomicTask> splits = splitWorkAmongsWorkers(inputFileDetails,d);
-								int numberOfWorkers = splits.size() / n;
-								int numberOfWorkersToCreate = numberOfWorkers - currentNumberOfWorkers.get();
-			
-								//puts in the relevant hash map...
-								mapLocals.put(UUID,splits);
-			
-								for(int i=0; i< numberOfWorkersToCreate; i++) {
-									//System.out.println("Manager (localApplicationHandler) :: creating a worker!");
-									//createAndRunWorker(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0");
-									//currentNumberOfWorkers.incrementAndGet();
+								if(!afterThatDate(inputFileDetails.getStartDate(),inputFileDetails.getEndDate())) {
+									System.out.println("Manager (localApplicationHandler) :: split the work amongs the workers...");
 									
+									ArrayList<AtomicTask> splits = null;
+									try {
+										splits = splitWorkAmongsWorkers(inputFileDetails,d);
+									} catch (ParseException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+									System.out.println("Manager (localApplicationHandler) :: splits.size() = "+splits.size());
+									System.out.println("Manager (localApplicationHandler) :: n = "+n);								
+									double numberOfWorkers = (double) splits.size() / n;
+									int numberOfWorkersToCreate = ((int)(numberOfWorkers + 0.5)) - currentNumberOfWorkers.get();
+				
+									//puts in the relevant hash map...
+									mapLocals.put(UUID,splits);
+									
+									System.out.println("Manager (localApplicationHandler) :: numberOfWorkers = "+numberOfWorkers);
+									System.out.println("Manager (localApplicationHandler) :: numberOfWorkersToCreate = "+numberOfWorkersToCreate);
+									
+									for(int i=0; i< numberOfWorkersToCreate; i++) {
+										System.out.println("Manager (localApplicationHandler) :: creating a worker!");
+										//createAndRunWorker(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0");
+										currentNumberOfWorkers.incrementAndGet();
+										
+									}
+									System.out.println("Manager (localApplicationHandler) :: currentNumberOfWorkers = "+currentNumberOfWorkers.get());
+									
+									System.out.println("Manager (localApplicationHandler) :: currentNumberOfWorkers after calculation is = "+currentNumberOfWorkers.get());
+									
+									// move all splits towards the workers for them to handle...
+									for (AtomicTask f : splits) {
+										WorkerMessage w = new WorkerMessage("AtomicTask",new Gson().toJson(f));
+										System.out.println("Manager (localApplicationHandler) :: send all tasks to workers queue...");
+										mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(w));
+									}
+								} else {
+									System.out.println("Manager (localApplicationHandler) :: the input file I just got doesn`t make sense (Dates Issues");
+									return;
 								}
-								currentNumberOfWorkers.incrementAndGet();
-								currentNumberOfWorkers.incrementAndGet();
-								
-								System.out.println("Manager (localApplicationHandler) :: currentNumberOfWorkers after calculation is = "+currentNumberOfWorkers.get());
-								
-								// move all splits towards the workers for them to handle...
-								for (AtomicTask f : splits) {
-									WorkerMessage w = new WorkerMessage("AtomicTask",new Gson().toJson(f));
-									System.out.println("Manager (localApplicationHandler) :: send all tasks to workers queue...");
-									mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(w));
-								}
+
 			
 							}
 				}
@@ -580,67 +589,85 @@ public class Manager {
 						System.out.println("Manager (sealTheDealDaemon) :: printing the mapLocals hash map...");
 						printHashMap(mapLocals);
 						for(ArrayList<AtomicTask> tasks : mapLocals.values()) {
-							System.out.println("sealTheDealDaemon :: is running over some local application...");
-							//Iterate over one local application!!!
-							//Checks if done ALL work !!!
-							boolean done = true;
-							here:
-								for (AtomicTask f : tasks) {
-									if(f.getDone() == false) {
-										System.out.println("sealTheDealDaemon :: "+f.getTaskUUID() +" task is yet to be completed...");
-										done = false;
-										break here;
-									}
-								} 
-
-							if(done) {
-								System.out.println("Manager (sealTheDealDaemon) :: this local application is done!!! Well done workers!");
-								String localUUID = null;
-								JSONArray AtomicAnalysisResultAsJSONArray = null;
-								Boolean isTerminationMessage = null;
-								for (AtomicTask f : tasks) {
-									try {
-										JSONArray a = new JSONArray(f.getAtomicAnalysisResult());
-										AtomicAnalysisResultAsJSONArray = concatArray(AtomicAnalysisResultAsJSONArray,a);
-										
-									} catch (JSONException e) {
-										// TODO Auto-generated catch block
-										e.printStackTrace();
-									}
-									if(localUUID == null) { 
-										localUUID = f.getLocalUUID();
-									}
-									if(isTerminationMessage == null) { 
-										isTerminationMessage = f.getIsTerminated();
-									}
-								} 
-
-								try {
-									setAndPackUpLocalApplication(localUUID,AtomicAnalysisResultAsJSONArray.toString(),mapLocalsQueueURLS);
-								} catch (IOException e1) {
-									// TODO Auto-generated catch block
-									e1.printStackTrace();
-								}
-								mapLocals.remove(localUUID);
-								//done serving this specific local application. now is it a termination message?
-								if(isTerminationMessage) {
-									WorkerMessage t = new WorkerMessage("TerminationMessage",new Gson().toJson(new TerminationMessage(true)));
-									for(int i=0; i < currentNumberOfWorkers.get(); i++) {
-												System.out.println("Sends " + currentNumberOfWorkers.get()+ " termination messages to workers.");
-												mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(t));
-									}
-									System.out.println("Manager (sealTheDealDaemon) :: Calling shutDownAllSystem()");
-									shutDownAllSystem(localApplicationHandler,workersHandler,mapLocals,mapLocalsQueueURLS);
-								}
-							}
+							     if(!tasks.isEmpty()) {
+										System.out.println("tasks is not empty and has a size of"+tasks.size() );
+										System.out.println("sealTheDealDaemon :: is running over some local application...");
+										//Iterate over one local application!!!
+										//Checks if done ALL work !!!
+										boolean done = true;
+										here:
+											for (AtomicTask f : tasks) {
+												if(f.getDone() == false) {
+													System.out.println("sealTheDealDaemon :: "+f.getTaskUUID() +" task is yet to be completed...");
+													done = false;
+													break here;
+												} else {
+													System.out.println("sealTheDealDaemon :: "+f.getTaskUUID() +" task is COMPLETED!!!...");
+												}
+											} 
+			
+										if(done) {
+												System.out.println("Manager (sealTheDealDaemon) :: this local application is done!!! Well done workers!");
+												String localUUID = null;
+												JSONArray AtomicAnalysisResultAsJSONArray = null;
+												Boolean isTerminationMessage = null;
+												System.out.println("isTerminationMessage was" + isTerminationMessage +" here.");
+												System.out.println("tasks size here is" + tasks.size() +" here.");
+												for (AtomicTask f : tasks) {
+													try {
+														System.out.println("sealTheDealDaemon :: concatinating....");
+														JSONArray a = new JSONArray(f.getAtomicAnalysisResult());
+														AtomicAnalysisResultAsJSONArray = concatArray(AtomicAnalysisResultAsJSONArray,a);
+														
+													} catch (JSONException e) {
+														// TODO Auto-generated catch block
+														e.printStackTrace();
+													}
+													if(localUUID == null) { 
+														localUUID = f.getLocalUUID();
+													}
+													if(isTerminationMessage == null) { 
+														isTerminationMessage = f.getIsTerminated();
+														System.out.println("isTerminationMessage was" + isTerminationMessage +" here.");
+													}
+												} 
+												System.out.println("AtomicAnalysisResultAsJSONArray with value of"+AtomicAnalysisResultAsJSONArray);
+												try {
+													setAndPackUpLocalApplication(localUUID,AtomicAnalysisResultAsJSONArray.toString(),mapLocalsQueueURLS,accessKey,secretKey);
+												} catch (IOException e1) {
+													// TODO Auto-generated catch block
+													e1.printStackTrace();
+												}
+												mapLocals.remove(localUUID);
+												System.out.println("removing localUUID "+localUUID+ "from the hash map...");
+												//done serving this specific local application. now is it a termination message?
+												System.out.println("isTerminationMessage = "+isTerminationMessage);
+												System.out.println("currentNumberOfTerminationMessages = "+currentNumberOfTerminationMessages.get());
+												
+												if(isTerminationMessage && currentNumberOfTerminationMessages.get()==0) {
+													currentNumberOfTerminationMessages.incrementAndGet();
+													WorkerMessage t = new WorkerMessage("TerminationMessage",new Gson().toJson(new TerminationMessage(true)));
+													for(int i=0; i < currentNumberOfWorkers.get(); i++) {
+																System.out.println("Sends " + currentNumberOfWorkers.get()+ " termination messages to workers.");
+																mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(t));
+													}
+													System.out.println("Manager (sealTheDealDaemon) :: Calling shutDownAllSystem()");
+													shutDownAllSystem(localApplicationHandler,workersHandler,mapLocals,mapLocalsQueueURLS,accessKey,secretKey);
+												}
+										}
+							     }
 
 						}
 					} else {
-						if(terminated) {
+						if(terminated && currentNumberOfTerminationMessages.get()==0) {
+							currentNumberOfTerminationMessages.incrementAndGet();
 							WorkerMessage t = new WorkerMessage("TerminationMessage",new Gson().toJson(new TerminationMessage(true)));
-							mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(t));
+							for(int i=0; i < currentNumberOfWorkers.get(); i++) {
+										System.out.println("Sends " + currentNumberOfWorkers.get()+ " termination messages to workers.");
+										mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(t));
+							}
 							System.out.println("Manager (sealTheDealDaemon) :: Calling shutDownAllSystem()");
-							shutDownAllSystem(localApplicationHandler,workersHandler,mapLocals,mapLocalsQueueURLS);
+							shutDownAllSystem(localApplicationHandler,workersHandler,mapLocals,mapLocalsQueueURLS,accessKey,secretKey);
 						}
 					}
 					

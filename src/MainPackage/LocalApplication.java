@@ -6,10 +6,12 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -92,7 +94,23 @@ public class LocalApplication {
         return str;
     }
     
-
+    private static void copyFileUsingStream(File source, File dest) throws IOException {
+        InputStream is = null;
+        OutputStream os = null;
+        try {
+            is = new FileInputStream(source);
+            os = new FileOutputStream(dest);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = is.read(buffer)) > 0) {
+                os.write(buffer, 0, length);
+            }
+        } finally {
+            is.close();
+            os.close();
+        }
+    }
+    
 	static String readFile(String path, Charset encoding) throws IOException {
 		byte[] encoded = Files.readAllBytes(Paths.get(path));
 		return new String(encoded, encoding);
@@ -141,8 +159,8 @@ public class LocalApplication {
 		ec2.createTags(createTagsRequest);
     }
     
-    public static void uploadFileToS3(String inputFileName) {
-    	AmazonS3 s3client = new AmazonS3Client(new ProfileCredentialsProvider());
+    public static void uploadFileToS3(String inputFileName,String accessKey, String secretKey) {
+    	AmazonS3 s3client = new AmazonS3Client(new BasicAWSCredentials(accessKey,secretKey));
 		PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, inputFileName,new File(inputFileName));
 		s3client.putObject(putObjectRequest.withCannedAcl(CannedAccessControlList.PublicReadWrite));
     }
@@ -176,7 +194,7 @@ public class LocalApplication {
 		String outputFileName = args[1];
 		int n = Integer.parseInt(args[2]);
 		int d = Integer.parseInt(args[3]);
-		Boolean terminate = null;
+		Boolean terminate = false;
 		
 		if(args.length == 5) {
 			System.out.println("LocalApplication :: got terminate as an argument.");
@@ -214,15 +232,17 @@ public class LocalApplication {
 			/* credentials handling ...  */
 			
 			String All_local_application_queue_name_url = mySQS.getInstance().createQueue(All_local_applications_queue_name);
-			
 			String uuid = UUID.randomUUID().toString();
 			System.out.println("Local Application :: Uploading the input file to S3...\n");
-			uploadFileToS3(inputFileName); 		
+			File newFileToSendToS3 = new File(uuid+"-"+inputFileName);
+			newFileToSendToS3.createNewFile();
+			copyFileUsingStream(new File(inputFileName),newFileToSendToS3);
+			uploadFileToS3(uuid+"-"+inputFileName,accessKey,secretKey); 
 			
 			Gson gson = new GsonBuilder().create();
 			String queueURLToGoBackTo = mySQS.getInstance().createQueue(uuid);
 			
-			LocalApplicationMessage m = new LocalApplicationMessage(bucketName,inputFileName,queueURLToGoBackTo,outputFileName,n,d,uuid,terminate);  
+			LocalApplicationMessage m = new LocalApplicationMessage(bucketName,uuid+"-"+inputFileName,queueURLToGoBackTo,outputFileName,n,d,uuid,terminate);  
 			
 			//* Sending message to manager... //
 			mySQS.getInstance().sendMessageToQueue(All_local_application_queue_name_url,gson.toJson(m));			
@@ -231,8 +251,8 @@ public class LocalApplication {
 			System.out.println("Local Application :: trying to run a manager ec2 instance... \n");
 
 			//if(!hasManager(ec2)) { 
-			//	System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
-			//	createManager(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0"); 
+				//System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
+				//createManager(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0"); 
 			//} 
 
 			System.out.println("Local Application :: done. Now, I`m just waiting for the results... :)");
@@ -245,11 +265,11 @@ public class LocalApplication {
 				System.out.println("LocalApplication :: Thanks Manager, for this URL I just got: " + r.getSummaryFileURL());
 			}
 			
-			  AmazonS3 s3Client = new AmazonS3Client(new ProfileCredentialsProvider());
+			  AmazonS3 s3Client = new AmazonS3Client(new BasicAWSCredentials(accessKey,secretKey));
 		      System.out.println("Local Application :: Downloading the summary file receipt I just got from the manager :)");
 		      S3Object s3object = s3Client.getObject(new GetObjectRequest(bucketName, r.getSummaryFileName()));
 		      S3ObjectInputStream contentFromS3 = s3object.getObjectContent();
-		
+
 		      String contentAsJson = getStringFromInputStream(contentFromS3);	      
 		      System.out.println("Local Application :: the content of the summary file receipt as json is: " +contentAsJson);
 		      SummaryFile s = new Gson().fromJson(contentAsJson,SummaryFile.class);
@@ -268,7 +288,7 @@ public class LocalApplication {
 					   } 
 			  } 
 		      
-		      Collections.sort( AtomicAnalysisResultAsArrayList, new Comparator<AtomicAnalysis>() {
+		      Collections.sort(AtomicAnalysisResultAsArrayList, new Comparator<AtomicAnalysis>() {
 		          public int compare(AtomicAnalysis a, AtomicAnalysis b) {
 		              int res = a.getDanger().getId() - b.getDanger().getId();
 		              if(res != 0) return res;
@@ -281,11 +301,10 @@ public class LocalApplication {
 				
 		      //Creating the html file with the summary file brought by the manager...
 
-			  
-		      File file = new File(outputFileName + ".html");
+		      File file = new File(outputFileName +"-"+ uuid +".html");
 			 
 			  if(file.exists()) {
-	  			            System.out.println("File already exists! WTF, Dude...");
+	  			            System.out.println("LocalApplication :: File already exists! WTF, Dude...");
 	  		  } else {
 		  			        FileWriter fileWriter = null;
 		  			        BufferedWriter bufferedWriter = null;
