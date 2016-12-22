@@ -1,5 +1,6 @@
 package MainPackage;
 
+import com.amazonaws.ClientConfiguration;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.sqs.AmazonSQS;
 import com.amazonaws.services.sqs.AmazonSQSClient;
@@ -24,6 +25,7 @@ public class mySQS {
 				    		credentials = new BasicAWSCredentials(accessKey,secretKey);
 				    		sqs = new AmazonSQSClient(credentials);
 				    		awssqsUtil = new mySQS();
+				    		new ClientConfiguration().setConnectionTimeout(0);
 		    	    }
 		    	    return awssqsUtil;
 	    }
@@ -63,7 +65,7 @@ public class mySQS {
 	    public List<Message> getMessagesFromQueue(String queueUrl,String entity){
 	       ReceiveMessageRequest receiveMessageRequest = new ReceiveMessageRequest(queueUrl);
 	       List<Message> messages = sqs.receiveMessage(receiveMessageRequest).getMessages();
-  	     System.out.println("mySQS :: "+entity+" is getting waiting for results...");
+	       System.out.println("mySQS :: "+entity+" is getting waiting for results...");
 	       return messages;
 	    }
 	    
@@ -87,8 +89,12 @@ public class mySQS {
 	            System.out.println(msg.getBody());
 	        }
 	    }
+	    
+	    public void deleteQueueByURL(String queueURL) {
+	     	sqs.deleteQueue(queueURL);
+	    }
 
-	    public void deleteMessageFromQueue(String queueUrl, Message message){
+	    public synchronized void deleteMessageFromQueue(String queueUrl, Message message){
 	        String messageRecieptHandle = message.getReceiptHandle();
 	        System.out.println("mySQS :: message deleted : " + message.getBody());
 	        sqs.deleteMessage(new DeleteMessageRequest(queueUrl, messageRecieptHandle));

@@ -36,6 +36,10 @@ public class Worker {
 	
 	private volatile static boolean terminated = false;
 	//return true if currentEndDate is after endDate.
+	
+	private static int asteroidsParsed = 0;
+	private static int dangerousAsteroids = 0; //Green/Yellow/Red
+	private static int safeAsteroids = 0; //safe, non-hazardous asteroids
 
 	public static void main(String[] args) throws Exception {
 			
@@ -133,26 +137,34 @@ public class Worker {
 					      					String miss_distance_astronomical = close_approach_data.getJSONObject("miss_distance").getString("astronomical");
 			
 					      					DangerColor danger = DangerColor.DEFAULT;
-					      					
-					      					if(isHazardous) {
+					      					asteroidsParsed++;
+					      					//System.out.println("this asteroid "+nameAsteroid+ "is parsed right now");
+					      					if(isHazardous) {    
 							      					if(velocity >= speedThreshold) { //green
 								      						danger = DangerColor.GREEN;
 									      					if(estimated_diameter_min >= diameterThreshold) { //yellow
 										      						danger = DangerColor.YELLOW;
-										      						System.out.println(Double.parseDouble(miss_distance_astronomical) + " >? " + missThreshold);
+										      						//System.out.println(Double.parseDouble(miss_distance_astronomical) + " >? " + missThreshold);
 											      					if(Double.parseDouble(miss_distance_astronomical) >= missThreshold) { //red
 											      						danger = DangerColor.RED;
 											      					} 
 									      					}
 							      					}
+					      					} else {
+					      							//System.out.println("this asteroid is safe with color "+danger+", increasing dangerousAsteroids++");
+					      							safeAsteroids++;
+					      					}
+					      					
+					      					if(danger != DangerColor.DEFAULT) {
+					      							//System.out.println("this asteroid is dangerous with color "+danger+". increasing dangerousAsteroids++");
+					      							dangerousAsteroids++;
 					      					}
 					      					
 					      					AtomicAnalysis analysis = new AtomicAnalysis(nameAsteroid,close_approach_data_string,velocity,
 					      							estimated_diameter_min, estimated_diameter_max, miss_distance_kilometers,
 					      							danger);
 					      					
-					      					ja.put(new Gson().toJson(analysis));
-						      				
+					      					ja.put(new Gson().toJson(analysis));	
 				      				}
 				      				
 				      			}
@@ -168,6 +180,12 @@ public class Worker {
 					    	 	if(t.isTerminate()) {
 					    	 			System.out.println("----------------------------------------");
 					    	 			System.out.println("I`m done working for today. gonna grab some beer :-)");
+					    	 			System.out.println("----------------------------------------");
+					    	 			System.out.println("------------Statistics-------------------");
+					    	 			System.out.println("Asteroids Parsed: "+asteroidsParsed);
+					    	 			System.out.println("Dangerous Asteroids (Green/Yellow/Red): "+dangerousAsteroids);
+					    	 			System.out.println("Safe Asteroids: "+safeAsteroids);		
+					    	 			System.out.println("----------------------------------------");
 					    	 			System.out.println("----------------------------------------");
 					    	 			return;
 					    	 	}	

@@ -251,8 +251,8 @@ public class LocalApplication {
 			System.out.println("Local Application :: trying to run a manager ec2 instance... \n");
 
 			//if(!hasManager(ec2)) { 
-				//System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
-				//createManager(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0"); 
+			//	System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
+			//	createManager(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0"); 
 			//} 
 
 			System.out.println("Local Application :: done. Now, I`m just waiting for the results... :)");
@@ -313,8 +313,7 @@ public class LocalApplication {
 							bufferedWriter.write(readFile("beginning.html",StandardCharsets.UTF_8));
 
 							for (int i = 0; i < AtomicAnalysisResultAsArrayList.size(); i++) {
-										JsonObjects.AtomicAnalysis o =  AtomicAnalysisResultAsArrayList.get(i);
-										
+										JsonObjects.AtomicAnalysis o =  AtomicAnalysisResultAsArrayList.get(i);		
 										if(o.getDanger() == DangerColor.GREEN) { //green
 											bufferedWriter.write("<tr bgcolor=#00ff00>");
 										} else if(o.getDanger() == DangerColor.YELLOW) { //yellow
@@ -344,6 +343,10 @@ public class LocalApplication {
 							fileWriter.close();
 							System.out.println("Local Application ("+localUUID+"): I`m done. Thanks for serving me!");
 							System.out.println("Local Application ("+localUUID+"): Now I can view the results on" + outputFileName+ " file! :)");
+							mySQS.getInstance().deleteQueueByURL(queueURLToGoBackTo);
+							new File(uuid+"-"+inputFileName).delete();
+							new File("AsteroidsAnalysis-"+uuid).delete();
+				
 	  		  }	  
 		} catch (AmazonServiceException ase) {
 				System.out.println(""+ "Caught an AmazonServiceException, which " +"means your request made it " +"to Amazon S3, but was rejected with an error response" +" for some reason.");
