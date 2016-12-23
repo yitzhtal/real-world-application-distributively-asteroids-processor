@@ -1,5 +1,0 @@
-start-date: 2016-10-20
-end-date: 2016-10-30
-speed-threshold: 10
-diameter-threshold: 200
-miss-threshold: 0.3

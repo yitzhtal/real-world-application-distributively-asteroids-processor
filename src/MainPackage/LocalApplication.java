@@ -12,10 +12,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.URL;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 
 import java.util.Collection;
@@ -26,6 +28,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
 import org.apache.commons.codec.binary.Base64;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -212,7 +216,23 @@ public class LocalApplication {
 			/* credentials handling ...  */
 			
 			Properties properties = new Properties();
-			String path = "C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties";
+
+			String path = "AWSCredentials.properties";
+			URL website = new URL("https://s3.amazonaws.com/real-world-application-asteroids/AWSCredentials.zip");
+			try (InputStream in = website.openStream()) {
+				Files.copy(in, new File("credentials.zip").toPath(), StandardCopyOption.REPLACE_EXISTING);
+			}
+            System.out.println("File downloaded");
+            try {
+                ZipFile zipFile = new ZipFile("credentials.zip");
+                if (zipFile.isEncrypted()) {
+                    zipFile.setPassword("audiocodes");
+                }
+                zipFile.extractAll(System.getProperty("user.dir"));
+                System.out.println("File extracted");
+            } catch (ZipException e) {
+                e.printStackTrace();
+            }
 			try {
 				properties.load(new FileInputStream(path));
 			} catch (FileNotFoundException e1) {
@@ -290,10 +310,11 @@ public class LocalApplication {
 		      
 		      Collections.sort(AtomicAnalysisResultAsArrayList, new Comparator<AtomicAnalysis>() {
 		          public int compare(AtomicAnalysis a, AtomicAnalysis b) {
-		              int res = a.getDanger().getId() - b.getDanger().getId();
-		              if(res != 0) return res;
-		              double res2 = Double.parseDouble(a.getMiss_distance_kilometers()) - Double.parseDouble(b.getMiss_distance_kilometers());
-		              return (int) res2;
+					  return a.getNameAsteroid().compareTo(b.getNameAsteroid());
+//		              int res = a.getDanger().getId() - b.getDanger().getId();
+//		              if(res != 0) return res;
+//		              double res2 = Double.parseDouble(a.getMiss_distance_kilometers()) - Double.parseDouble(b.getMiss_distance_kilometers());
+//		              return (int) res2;
 		          }
 		      });
 		        

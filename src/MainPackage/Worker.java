@@ -46,7 +46,7 @@ public class Worker {
 		/* credentials handling ...  */
 	
 		Properties properties = new Properties();
-		String path = "C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties";  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
+		String path = "C:/Users/assaf/Downloads/AWSCredentials.properties";  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
 		try {
 			properties.load(new FileInputStream(path));
 		} catch (FileNotFoundException e1) {
@@ -77,8 +77,7 @@ public class Worker {
 					    w = new Gson().fromJson(s, WorkerMessage.class);
 					    if(w.getType().equals("AtomicTask")) {
 					    	    task = new Gson().fromJson(w.getContent(), AtomicTask.class);  
-							    mySQS.getInstance().deleteMessageFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),msg); 
-				                startDate = task.getStartDate();
+							    startDate = task.getStartDate();
 				                endDate = task.getEndDate();
 				                speedThreshold = task.getSpeedThreshold();
 				                diameterThreshold = task.getDiameterThreshold();
@@ -171,8 +170,11 @@ public class Worker {
 				      			String analysisRes = ja.toString();		
 				      			task.setDone(true);
 				      			task.setAtomicAnalysisResult(analysisRes);
-				      			mySQS.getInstance().sendMessageToQueue(Manager.managerListener,new Gson().toJson(task));					    		
-					    }
+				      			mySQS.getInstance().sendMessageToQueue(Manager.managerListener,new Gson().toJson(task));
+
+								mySQS.getInstance().deleteMessageFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),msg);
+
+						}
 					    
 					    if(w.getType().equals("TerminationMessage")) {
 					    	    mySQS.getInstance().deleteMessageFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),msg); 

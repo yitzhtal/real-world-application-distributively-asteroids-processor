@@ -1,5 +1,6 @@
 package Tests;
 
+import Runnables.LocalMsgHandlerRunnable;
 import org.junit.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -83,11 +84,11 @@ public class LocalApplicationTests {
 	
 	@Test
 	public void testAfterThatTime() {
-		assertEquals(true,Manager.afterThatDate("2017-01-31","2017-01-26"));
-		assertEquals(true,Manager.afterThatDate("2017-01-31","2017-01-27"));
-		assertEquals(true,Manager.afterThatDate("2017-01-31","2017-01-28"));
-		assertEquals(true,Manager.afterThatDate("2017-01-31","2017-01-29"));
-		assertEquals(true,Manager.afterThatDate("2017-01-31","2017-01-30"));
+		assertEquals(true, LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-26"));
+		assertEquals(true,LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-27"));
+		assertEquals(true,LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-28"));
+		assertEquals(true,LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-29"));
+		assertEquals(true,LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-30"));
 	}
 	
 	//assumes a manager was created already...
