@@ -147,10 +147,10 @@ public class Manager {
 
 		/* credentials handling ...  */
 
-		Properties properties = new Properties();
-		String path = "AWSCredentials.properties";  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
+		
+		final String path = "/AWSCredentials.properties";  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
 		//C:/Users/assaf/Downloads/AWSCredentials.properties
-		try {
+		/*try {
 			properties.load(ClassLoader.getSystemResourceAsStream(path));
 		} catch (FileNotFoundException e1) {
 			// TODO Auto-generated catch block
@@ -158,10 +158,25 @@ public class Manager {
 		} catch (IOException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
-		}
+		}*/
+		
+		
+        Properties prop = new Properties();
+        try {
+            File jarPath = new File(Manager.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+            String propertiesPath = jarPath.getParent();
+            System.out.println("newPropetriesPath" + propertiesPath);
+            File newJarPath = new File(propertiesPath);
+            String newPropetriesPath = newJarPath.getParent();
+            System.out.println("newPropetriesPath" + newPropetriesPath);
+            prop.load(new FileInputStream(newPropetriesPath+path));
+        } catch (IOException e1) {
+            e1.printStackTrace();
+        }
+		
 
-		accessKey = properties.getProperty("accessKeyId");
-		secretKey = properties.getProperty("secretKey");
+		accessKey = prop.getProperty("accessKeyId");
+		secretKey = prop.getProperty("secretKey");
 		mySQS.setAccessAndSecretKey(accessKey, secretKey);
 
 		/* credentials handling ...  */

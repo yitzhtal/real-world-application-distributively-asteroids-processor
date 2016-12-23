@@ -236,6 +236,7 @@ public class LocalApplication {
             try {
                 File jarPath = new File(LocalApplication.class.getProtectionDomain().getCodeSource().getLocation().getPath());
                 String propertiesPath = jarPath.getParent();
+                System.out.println("newPropetriesPath" + propertiesPath);
                 File newJarPath = new File(propertiesPath);
                 String newPropetriesPath = newJarPath.getParent();
                 System.out.println("newPropetriesPath" + newPropetriesPath);
@@ -275,10 +276,10 @@ public class LocalApplication {
 			
 			System.out.println("Local Application :: trying to run a manager ec2 instance... \n");
 
-			if(!hasManager(ec2)) { 
-				System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
-				createManager(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0"); 
-			} 
+			//if(!hasManager(ec2)) { 
+			//	System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
+			//	createManager(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0"); 
+			//} 
 
 			System.out.println("Local Application :: done. Now, I`m just waiting for the results... :)");
 			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(queueURLToGoBackTo,15,"Local Application");
@@ -341,11 +342,11 @@ public class LocalApplication {
 							for (int i = 0; i < AtomicAnalysisResultAsArrayList.size(); i++) {
 										JsonObjects.AtomicAnalysis o =  AtomicAnalysisResultAsArrayList.get(i);		
 										if(o.getDanger() == DangerColor.GREEN) { //green
-											bufferedWriter.write("<tr bgcolor=#00ff00>");
+											bufferedWriter.write("<tr bgcolor=#90EE90>");
 										} else if(o.getDanger() == DangerColor.YELLOW) { //yellow
-											bufferedWriter.write("<tr bgcolor=#FFff00>");
+											bufferedWriter.write("<tr bgcolor=#FFD700>");
 										} else if(o.getDanger() == DangerColor.RED) { //red
-											bufferedWriter.write("<tr bgcolor=#FF0000>");
+											bufferedWriter.write("<tr bgcolor=#FF6347>");
 										} else {
 											bufferedWriter.write("<tr>");
 										}

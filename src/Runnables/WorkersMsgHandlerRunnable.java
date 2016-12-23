@@ -171,8 +171,8 @@ public class WorkersMsgHandlerRunnable implements Runnable{
 				}	
 			}
 		}	
-		shutDownAllInstancesByTag("worker",accessKey,secretKey);
-		shutDownAllInstancesByTag("manager",accessKey,secretKey);
+		//shutDownAllInstancesByTag("worker",accessKey,secretKey);
+		//shutDownAllInstancesByTag("manager",accessKey,secretKey);
 		System.out.println("Manager :: waiting 10 seconds before deleting queues...");
 		Thread.sleep(10*1000);
 		System.out.println("Manager :: deleting all queues from the system...");

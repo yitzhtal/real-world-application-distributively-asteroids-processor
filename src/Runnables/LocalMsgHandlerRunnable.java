@@ -250,7 +250,7 @@ public class LocalMsgHandlerRunnable implements Runnable{
 
                 for(int i=0; i< numberOfWorkersToCreate; i++) {
                     System.out.println("Manager :: LocalMsgHandlerRunnable :: creating a worker!");
-                    createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),"t2.micro","hardwell","ami-b73b63a0");
+                    //createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),"t2.micro","hardwell","ami-b73b63a0");
                     Manager.currentNumberOfWorkers.incrementAndGet();
 
                 }
