@@ -3,6 +3,7 @@ package Runnables;
 import JsonObjects.AtomicTask;
 import JsonObjects.LocalApplicationMessage;
 import JsonObjects.WorkerMessage;
+import MainPackage.AtomicTasksTracker;
 import MainPackage.LocalApplication;
 import MainPackage.Manager;
 import MainPackage.mySQS;
@@ -30,137 +31,22 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Created by assaf on 23/12/2016.
- */
 public class LocalMsgHandlerRunnable implements Runnable{
 
     private List<Message> messages;
     private String queueURL;
     private String workersListenerURL;
+    private String accessKey;
+    private String secretKey;
 
-
-    public LocalMsgHandlerRunnable(List<Message> messages, String queueURL, String workersListenerURL) {
+    public LocalMsgHandlerRunnable(List<Message> messages, String queueURL, String workersListenerURL,String accessKey,String secretKey) {
         this.messages = messages;
         this.queueURL = queueURL;
         this.workersListenerURL = workersListenerURL;
+        this.accessKey = accessKey;
+        this.secretKey = secretKey;
     }
-
-    @Override
-    public void run() {
-        if(!Manager.terminated) {
-            String bucketName = null, keyName = null, queueURLtoGetBackTo = null,outputFileName = null,UUID = null;
-            int n = 0,d = 0;
-            Boolean isTerminated = false;
-            Gson gson = new GsonBuilder().create();
-            here:
-            if(!messages.isEmpty()) {
-                for(com.amazonaws.services.sqs.model.Message msg :  messages) {
-                    System.out.println("Manager :: moving over the messages...");
-                    LocalApplicationMessage m = gson.fromJson(msg.getBody(), LocalApplicationMessage.class);
-                    mySQS.getInstance().deleteMessageFromQueue(queueURL,msg);
-                    isTerminated = m.getIsTerminatedMessage();
-                    bucketName = m.getBucketName();
-                    keyName = m.getInputFileName();
-                    queueURLtoGetBackTo = m.getQueueURLToGoBackTo();
-                    outputFileName = m.getOutputFileName();
-                    UUID = m.getUUID();
-                    n = m.getN();
-                    d = m.getD();
-                    //add the queue URL to the hash map
-                    Manager.mapLocalsQueueURLS.put(UUID, queueURLtoGetBackTo);
-                }
-            }
-            AmazonS3 s3 = new AmazonS3Client(new BasicAWSCredentials(Manager.accessKey, Manager.secretKey));
-
-            AtomicTask inputFileDetails = new AtomicTask();
-            inputFileDetails.setLocalUUID(UUID);
-            inputFileDetails.setIsTerminated(isTerminated);
-
-            if(keyName != null && bucketName != null) {
-                S3Object s3obj = null;
-                s3obj = s3.getObject(new GetObjectRequest(bucketName, keyName));
-                InputStream content = null;
-                content=s3obj.getObjectContent();
-                BufferedReader br = new BufferedReader(new InputStreamReader(content));
-                String strLine=null,part1=null,part2=null;
-
-                try {
-                    while ((strLine = br.readLine()) != null)   {
-                        String[] parts = strLine.split(": ");
-                        part1 = parts[0];
-                        part2 = parts[1];
-                        if(part1.equals("start-date")) { inputFileDetails.setStartDate(part2); }
-                        if(part1.equals("end-date")) {inputFileDetails.setEndDate(part2);}
-                        if(part1.equals("speed-threshold")) {inputFileDetails.setSpeedThreshold(Integer.parseInt(part2)); }
-                        if(part1.equals("diameter-threshold")) {inputFileDetails.setDiameterThreshold(Integer.parseInt(part2)); }
-                        if(part1.equals("miss-threshold")) {inputFileDetails.setMissThreshold(Double.parseDouble(part2)); break;}
-                    }
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-                try {
-                    br.close();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-
-            } else {
-                System.out.println("Manager :: Error! keyName = "+keyName + ", bucketName = "+bucketName);
-            }
-            if(!afterThatDate(inputFileDetails.getStartDate(),inputFileDetails.getEndDate())) {
-                System.out.println("Manager (localApplicationHandler) :: split the work amongs the workers...");
-
-                ArrayList<AtomicTask> splits = null;
-                try {
-                    splits = splitWorkAmongsWorkers(inputFileDetails,d);
-                } catch (ParseException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-                System.out.println("Manager (localApplicationHandler) :: splits.size() = "+splits.size());
-                System.out.println("Manager (localApplicationHandler) :: n = "+n);
-                double numberOfWorkers = 0;
-                int numberOfWorkersToCreate = 0;
-
-                synchronized(this) {
-                    numberOfWorkers = (double) splits.size() / n;
-                    numberOfWorkersToCreate = (int)numberOfWorkers - Manager.currentNumberOfWorkers.get();
-                    if(splits.size() % n > 0) {
-                        numberOfWorkersToCreate++;
-                    }
-                    //puts in the relevant hash map...
-                    Manager.mapLocals.put(UUID,splits);
-                }
-
-                System.out.println("Manager (localApplicationHandler) :: numberOfWorkers = "+numberOfWorkers);
-                System.out.println("Manager (localApplicationHandler) :: numberOfWorkersToCreate = "+numberOfWorkersToCreate);
-
-                for(int i=0; i< numberOfWorkersToCreate; i++) {
-                    System.out.println("Manager (localApplicationHandler) :: creating a worker!");
-                    //createAndRunWorker(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0");
-                    Manager.currentNumberOfWorkers.incrementAndGet();
-
-                }
-                System.out.println("Manager (localApplicationHandler) :: currentNumberOfWorkers = "+Manager.currentNumberOfWorkers.get());
-
-                System.out.println("Manager (localApplicationHandler) :: currentNumberOfWorkers after calculation is = "+Manager.currentNumberOfWorkers.get());
-
-                // move all splits towards the workers for them to handle...
-                for (AtomicTask f : splits) {
-                    WorkerMessage w = new WorkerMessage("AtomicTask",new Gson().toJson(f));
-                    System.out.println("Manager (localApplicationHandler) :: send all tasks to workers queue...");
-                    mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(w));
-                }
-            } else {
-                System.out.println("Manager (localApplicationHandler) :: the input file I just got doesn`t make sense (Dates Issues");
-                return;
-            }
-        }
-
-    }
-
+    
     public static void createAndRunWorker(RunInstancesRequest r, AmazonEC2Client ec2, String instancetype, String keyname, String imageid) {
         r.setInstanceType(instancetype);
         r.setMinCount(1);
@@ -270,5 +156,121 @@ public class LocalMsgHandlerRunnable implements Runnable{
     public static int howManyDaysBetween(Date d1, Date d2){
         return (int)( (d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
     }
+
+    @Override
+    public void run() {
+        if(!Manager.terminated) {
+            String bucketName = null, keyName = null, queueURLtoGetBackTo = null,outputFileName = null,UUID = null;
+            int n = 0,d = 0;
+            Boolean isTerminated = false;
+            Gson gson = new GsonBuilder().create();
+            here:
+            if(!messages.isEmpty()) {
+                for(com.amazonaws.services.sqs.model.Message msg :  messages) {
+                    System.out.println("Manager :: LocalMsgHandlerRunnable :: moving over the messages...");
+                    LocalApplicationMessage m = gson.fromJson(msg.getBody(), LocalApplicationMessage.class);
+                    mySQS.getInstance().deleteMessageFromQueue(queueURL,msg);
+                    isTerminated = m.getIsTerminatedMessage();
+                    bucketName = m.getBucketName();
+                    keyName = m.getInputFileName();
+                    queueURLtoGetBackTo = m.getQueueURLToGoBackTo();
+                    outputFileName = m.getOutputFileName();
+                    UUID = m.getUUID();
+                    n = m.getN();
+                    d = m.getD();
+                    //add the queue URL to the hash map
+                    Manager.mapLocalsQueueURLS.put(UUID, queueURLtoGetBackTo);
+                }
+            }
+            AmazonS3 s3 = new AmazonS3Client(new BasicAWSCredentials(Manager.accessKey, Manager.secretKey));
+
+            AtomicTask inputFileDetails = new AtomicTask();
+            inputFileDetails.setLocalUUID(UUID);
+            inputFileDetails.setIsTerminated(isTerminated);
+
+            if(keyName != null && bucketName != null) {
+                S3Object s3obj = null;
+                s3obj = s3.getObject(new GetObjectRequest(bucketName, keyName));
+                InputStream content = null;
+                content=s3obj.getObjectContent();
+                BufferedReader br = new BufferedReader(new InputStreamReader(content));
+                String strLine=null,part1=null,part2=null;
+
+                try {
+                    while ((strLine = br.readLine()) != null)   {
+                        String[] parts = strLine.split(": ");
+                        part1 = parts[0];
+                        part2 = parts[1];
+                        if(part1.equals("start-date")) { inputFileDetails.setStartDate(part2); }
+                        if(part1.equals("end-date")) {inputFileDetails.setEndDate(part2);}
+                        if(part1.equals("speed-threshold")) {inputFileDetails.setSpeedThreshold(Integer.parseInt(part2)); }
+                        if(part1.equals("diameter-threshold")) {inputFileDetails.setDiameterThreshold(Integer.parseInt(part2)); }
+                        if(part1.equals("miss-threshold")) {inputFileDetails.setMissThreshold(Double.parseDouble(part2)); break;}
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+                try {
+                    br.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+
+            } else {
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: Error! keyName = "+keyName + ", bucketName = "+bucketName);
+            }
+            if(!afterThatDate(inputFileDetails.getStartDate(),inputFileDetails.getEndDate())) {
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: split the work amongs the workers...");
+
+                ArrayList<AtomicTask> splits = null;
+                try {
+                    splits = splitWorkAmongsWorkers(inputFileDetails,d);
+                } catch (ParseException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: splits.size() = "+splits.size());
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: n = "+n);
+                double numberOfWorkers = 0;
+                int numberOfWorkersToCreate = 0;
+
+                synchronized(this) {
+                    numberOfWorkers = (double) splits.size() / n;
+                    numberOfWorkersToCreate = (int)numberOfWorkers - Manager.currentNumberOfWorkers.get();
+                    if(splits.size() % n > 0) {
+                        numberOfWorkersToCreate++;
+                    }
+                    //puts in the relevant hash map...
+                    Manager.mapLocals.put(UUID,new AtomicTasksTracker(splits,0));
+                }
+
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkers = "+numberOfWorkers);
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkersToCreate = "+numberOfWorkersToCreate);
+
+                for(int i=0; i< numberOfWorkersToCreate; i++) {
+                    System.out.println("Manager :: LocalMsgHandlerRunnable :: creating a worker!");
+                    createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),"t2.micro","hardwell","ami-b73b63a0");
+                    Manager.currentNumberOfWorkers.incrementAndGet();
+
+                }
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers = "+Manager.currentNumberOfWorkers.get());
+
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers after calculation is = "+Manager.currentNumberOfWorkers.get());
+
+                // move all splits towards the workers for them to handle...
+                for (AtomicTask f : splits) {
+                    WorkerMessage w = new WorkerMessage("AtomicTask",new Gson().toJson(f));
+                    System.out.println("Manager :: LocalMsgHandlerRunnable :: send all tasks to workers queue...");
+                    mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(w));
+                }
+            } else {
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: the input file I just got doesn`t make sense (Dates Issues");
+                return;
+            }
+        }
+
+    }
+
 
 }

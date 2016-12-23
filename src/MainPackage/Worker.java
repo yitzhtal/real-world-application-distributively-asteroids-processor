@@ -46,9 +46,10 @@ public class Worker {
 		/* credentials handling ...  */
 	
 		Properties properties = new Properties();
-		String path = "C:/Users/assaf/Downloads/AWSCredentials.properties";  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
+		String path = "AWSCredentials.properties";  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
+		//C:/Users/assaf/Downloads/AWSCredentials.properties
 		try {
-			properties.load(new FileInputStream(path));
+			properties.load(ClassLoader.getSystemResourceAsStream(path));
 		} catch (FileNotFoundException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();

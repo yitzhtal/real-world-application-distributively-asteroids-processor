@@ -81,7 +81,7 @@ import enums.DangerColor;
 
 public class LocalApplication {	
 
-	static final String bucketName                           		 = "real-world-application-asteroids";
+	public static final String bucketName                           		 = "real-world-application-asteroids";
 	private static final String credentialsFileName                  = "AWSCredentials.zip";
 	public static final String All_local_applications_queue_name     = "all_local_applications_to_manager";
 	
@@ -215,36 +215,41 @@ public class LocalApplication {
 			
 			/* credentials handling ...  */
 			
-			Properties properties = new Properties();
-
-			String path = "AWSCredentials.properties";
+			final String path = "/AWSCredentials.properties";
 			URL website = new URL("https://s3.amazonaws.com/real-world-application-asteroids/AWSCredentials.zip");
 			try (InputStream in = website.openStream()) {
-				Files.copy(in, new File("credentials.zip").toPath(), StandardCopyOption.REPLACE_EXISTING);
+				Files.copy(in, new File("AWSCredentials.zip").toPath(), StandardCopyOption.REPLACE_EXISTING);
 			}
-            System.out.println("File downloaded");
+            System.out.println("Local Application :: Credentials File downloaded.");
             try {
-                ZipFile zipFile = new ZipFile("credentials.zip");
+                ZipFile zipFile = new ZipFile("AWSCredentials.zip");
                 if (zipFile.isEncrypted()) {
                     zipFile.setPassword("audiocodes");
                 }
                 zipFile.extractAll(System.getProperty("user.dir"));
-                System.out.println("File extracted");
+                System.out.println("Local Application :: File extracted.");
             } catch (ZipException e) {
                 e.printStackTrace();
             }
-			try {
-				properties.load(new FileInputStream(path));
-			} catch (FileNotFoundException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			} catch (IOException e1) {
-				// TODO Auto-generated catch block
-				e1.printStackTrace();
-			}
+            
+            Properties prop = new Properties();
+            try {
+                File jarPath = new File(LocalApplication.class.getProtectionDomain().getCodeSource().getLocation().getPath());
+                String propertiesPath = jarPath.getParent();
+                File newJarPath = new File(propertiesPath);
+                String newPropetriesPath = newJarPath.getParent();
+                System.out.println("newPropetriesPath" + newPropetriesPath);
+                prop.load(new FileInputStream(newPropetriesPath+path));
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
 			
-			String accessKey = properties.getProperty("accessKeyId");
-			String secretKey = properties.getProperty("secretKey"); 
+			String accessKey = prop.getProperty("accessKeyId");
+			String secretKey = prop.getProperty("secretKey"); 
+			
+			if(accessKey == null || secretKey == null) {
+				System.out.println("LocalApplication :: accessKey / secret key are null.");
+			}
 			
 			mySQS.setAccessAndSecretKey(accessKey, secretKey);
 		    AmazonEC2Client ec2 = new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey));
@@ -270,10 +275,10 @@ public class LocalApplication {
 			
 			System.out.println("Local Application :: trying to run a manager ec2 instance... \n");
 
-			//if(!hasManager(ec2)) { 
-			//	System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
-			//	createManager(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0"); 
-			//} 
+			if(!hasManager(ec2)) { 
+				System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
+				createManager(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0"); 
+			} 
 
 			System.out.println("Local Application :: done. Now, I`m just waiting for the results... :)");
 			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(queueURLToGoBackTo,15,"Local Application");
@@ -367,7 +372,8 @@ public class LocalApplication {
 							mySQS.getInstance().deleteQueueByURL(queueURLToGoBackTo);
 							new File(uuid+"-"+inputFileName).delete();
 							new File("AsteroidsAnalysis-"+uuid).delete();
-				
+							new File("AWSCredentials.properties").delete();	
+							new File("credentials.zip").delete();
 	  		  }	  
 		} catch (AmazonServiceException ase) {
 				System.out.println(""+ "Caught an AmazonServiceException, which " +"means your request made it " +"to Amazon S3, but was rejected with an error response" +" for some reason.");

@@ -91,12 +91,4 @@ public class LocalApplicationTests {
 		assertEquals(true,LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-30"));
 	}
 	
-	//assumes a manager was created already...
-	@Test
-	public void testShutDownAllInstancesByTag() throws InterruptedException {
-		Manager.shutDownAllInstancesByTag("manager", accessKey, secretKey);
-		Thread.sleep(1000*5); //let the manager close itself...
-		Boolean hasManager = LocalApplication.hasManager(new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)));
-		assertEquals(false,hasManager);
-	}
 }
