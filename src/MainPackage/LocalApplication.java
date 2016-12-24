@@ -81,17 +81,13 @@ import enums.DangerColor;
 
 public class LocalApplication {	
 
-	public static final String bucketName                           		 = "real-world-application-asteroids";
-	private static final String credentialsFileName                  = "AWSCredentials.zip";
-	public static final String All_local_applications_queue_name     = "all_local_applications_to_manager";
-	
     public static String getUserDataScript(){
         ArrayList<String> lines = new ArrayList<String>();
         lines.add("#!/bin/bash");
         lines.add("echo y|sudo yum install java-1.8.0");
         lines.add("echo y|sudo yum remove java-1.7.0-openjdk");
-        lines.add("wget https://s3.amazonaws.com/real-world-application-asteroids/AWSCredentials.zip -O AWSCredentialsTEMP.zip");
-        lines.add("unzip -P audiocodes AWSCredentialsTEMP.zip");
+        lines.add("wget https://s3.amazonaws.com/real-world-application-asteroids/"+Constants.ZipFileName+" -O AWSCredentialsTEMP.zip");
+        lines.add("unzip -P "+Constants.ZipFilePassword +" AWSCredentialsTEMP.zip");
         lines.add("wget https://s3.amazonaws.com/real-world-application-asteroids/manager.jar -O manager.jar");
         lines.add("java -jar manager.jar");
         String str = new String(Base64.encodeBase64(join(lines, "\n").getBytes()));
@@ -165,7 +161,7 @@ public class LocalApplication {
     
     public static void uploadFileToS3(String inputFileName,String accessKey, String secretKey) {
     	AmazonS3 s3client = new AmazonS3Client(new BasicAWSCredentials(accessKey,secretKey));
-		PutObjectRequest putObjectRequest = new PutObjectRequest(bucketName, inputFileName,new File(inputFileName));
+		PutObjectRequest putObjectRequest = new PutObjectRequest(Constants.bucketName, inputFileName,new File(inputFileName));
 		s3client.putObject(putObjectRequest.withCannedAcl(CannedAccessControlList.PublicReadWrite));
     }
     
@@ -215,16 +211,15 @@ public class LocalApplication {
 			
 			/* credentials handling ...  */
 			
-			final String path = "/AWSCredentials.properties";
-			URL website = new URL("https://s3.amazonaws.com/real-world-application-asteroids/AWSCredentials.zip");
+			URL website = new URL(Constants.credentialsURLFromS3);
 			try (InputStream in = website.openStream()) {
-				Files.copy(in, new File("AWSCredentials.zip").toPath(), StandardCopyOption.REPLACE_EXISTING);
+				Files.copy(in, new File(Constants.ZipFileName).toPath(), StandardCopyOption.REPLACE_EXISTING);
 			}
             System.out.println("Local Application :: Credentials File downloaded.");
             try {
-                ZipFile zipFile = new ZipFile("AWSCredentials.zip");
+                ZipFile zipFile = new ZipFile(Constants.ZipFileName);
                 if (zipFile.isEncrypted()) {
-                    zipFile.setPassword("audiocodes");
+                    zipFile.setPassword(Constants.ZipFilePassword);
                 }
                 zipFile.extractAll(System.getProperty("user.dir"));
                 System.out.println("Local Application :: File extracted.");
@@ -240,7 +235,7 @@ public class LocalApplication {
                 File newJarPath = new File(propertiesPath);
                 String newPropetriesPath = newJarPath.getParent();
                 System.out.println("newPropetriesPath" + newPropetriesPath);
-                prop.load(new FileInputStream(newPropetriesPath+path));
+                prop.load(new FileInputStream(newPropetriesPath+Constants.path));
             } catch (IOException e1) {
                 e1.printStackTrace();
             }
@@ -257,7 +252,7 @@ public class LocalApplication {
 		    
 			/* credentials handling ...  */
 			
-			String All_local_application_queue_name_url = mySQS.getInstance().createQueue(All_local_applications_queue_name);
+			String All_local_application_queue_name_url = mySQS.getInstance().createQueue(Constants.All_local_applications_queue_name);
 			String uuid = UUID.randomUUID().toString();
 			System.out.println("Local Application :: Uploading the input file to S3...\n");
 			File newFileToSendToS3 = new File(uuid+"-"+inputFileName);
@@ -268,7 +263,7 @@ public class LocalApplication {
 			Gson gson = new GsonBuilder().create();
 			String queueURLToGoBackTo = mySQS.getInstance().createQueue(uuid);
 			
-			LocalApplicationMessage m = new LocalApplicationMessage(bucketName,uuid+"-"+inputFileName,queueURLToGoBackTo,outputFileName,n,d,uuid,terminate);  
+			LocalApplicationMessage m = new LocalApplicationMessage(Constants.bucketName,uuid+"-"+inputFileName,queueURLToGoBackTo,outputFileName,n,d,uuid,terminate);  
 			
 			//* Sending message to manager... //
 			mySQS.getInstance().sendMessageToQueue(All_local_application_queue_name_url,gson.toJson(m));			
@@ -278,11 +273,11 @@ public class LocalApplication {
 
 			//if(!hasManager(ec2)) { 
 			//	System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
-			//	createManager(new RunInstancesRequest(),ec2,"t2.micro","hardwell","ami-b73b63a0"); 
+			//createManager(new RunInstancesRequest(),ec2,Constants.InstanceType,Constants.KeyName,Constants.ImageID); 
 			//} 
 
 			System.out.println("Local Application :: done. Now, I`m just waiting for the results... :)");
-			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(queueURLToGoBackTo,15,"Local Application");
+			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(queueURLToGoBackTo,Constants.LocalApplicationAwaitMessageDelay,"Local Application");
 			
 			String fileNameBeforeHTML = null,localUUID = null;
 			SummaryFileReceipt r = null;
@@ -293,7 +288,7 @@ public class LocalApplication {
 			
 			  AmazonS3 s3Client = new AmazonS3Client(new BasicAWSCredentials(accessKey,secretKey));
 		      System.out.println("Local Application :: Downloading the summary file receipt I just got from the manager :)");
-		      S3Object s3object = s3Client.getObject(new GetObjectRequest(bucketName, r.getSummaryFileName()));
+		      S3Object s3object = s3Client.getObject(new GetObjectRequest(Constants.bucketName, r.getSummaryFileName()));
 		      S3ObjectInputStream contentFromS3 = s3object.getObjectContent();
 
 		      String contentAsJson = getStringFromInputStream(contentFromS3);	      

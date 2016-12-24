@@ -6,9 +6,11 @@ import JsonObjects.SummaryFileReceipt;
 import JsonObjects.TerminationMessage;
 import JsonObjects.WorkerMessage;
 import MainPackage.AtomicTasksTracker;
+import MainPackage.Constants;
 import MainPackage.LocalApplication;
 import MainPackage.Manager;
 import MainPackage.mySQS;
+import enums.WorkerMessageType;
 
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -118,7 +120,7 @@ public class WorkersMsgHandlerRunnable implements Runnable{
 
 		LocalApplication.uploadFileToS3(fileNameBeforeHTML,accessKey,secretKey);
 		String urlToFile = "https://"
-				+ LocalApplication.bucketName
+				+ Constants.bucketName
 				+ "."
 				+ "us-east-1"
 				+ "."
@@ -173,12 +175,12 @@ public class WorkersMsgHandlerRunnable implements Runnable{
 		}	
 		//shutDownAllInstancesByTag("worker",accessKey,secretKey);
 		//shutDownAllInstancesByTag("manager",accessKey,secretKey);
-		System.out.println("Manager :: waiting 10 seconds before deleting queues...");
-		Thread.sleep(10*1000);
+		System.out.println("Manager :: waiting " + Constants.deleteingQueuesDelay +" seconds before deleting queues...");
+		Thread.sleep(Constants.deleteingQueuesDelay*1000);
 		System.out.println("Manager :: deleting all queues from the system...");
-		mySQS.getInstance().deleteQueueByURL(mySQS.getInstance().getQueueUrl(Manager.workersListener));
-		mySQS.getInstance().deleteQueueByURL(mySQS.getInstance().getQueueUrl(Manager.managerListener));
-		mySQS.getInstance().deleteQueueByURL(mySQS.getInstance().getQueueUrl(LocalApplication.All_local_applications_queue_name));
+		mySQS.getInstance().deleteQueueByURL(mySQS.getInstance().getQueueUrl(Constants.workersListener));
+		mySQS.getInstance().deleteQueueByURL(mySQS.getInstance().getQueueUrl(Constants.managerListener));
+		mySQS.getInstance().deleteQueueByURL(mySQS.getInstance().getQueueUrl(Constants.All_local_applications_queue_name));
 		return;
 	}
 	
@@ -249,7 +251,7 @@ public class WorkersMsgHandlerRunnable implements Runnable{
 
                 	if(isTerminationMessage && Manager.currentNumberOfTerminationMessages.get()==0) {
                 		Manager.currentNumberOfTerminationMessages.incrementAndGet();
-                		WorkerMessage t1 = new WorkerMessage("TerminationMessage",new Gson().toJson(new TerminationMessage(true)));
+                		WorkerMessage t1 = new WorkerMessage(WorkerMessageType.TerminationMessage,new Gson().toJson(new TerminationMessage(true)));
                 		for(int i=0; i < Manager.currentNumberOfWorkers.get(); i++) {
                 			System.out.println("Sends " + Manager.currentNumberOfWorkers.get()+ " termination messages to workers.");
                 			mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(t1));

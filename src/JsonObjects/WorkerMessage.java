@@ -1,21 +1,22 @@
 package JsonObjects;
 
+import enums.WorkerMessageType;
 
 public class WorkerMessage {
 
-	private String type; 
+	private WorkerMessageType type; 
 	private String content; //can containt 2 kinds of messages: AtomicTask and TerminationMessage
 
-	public WorkerMessage(String type, String content) {
+	public WorkerMessage(WorkerMessageType type, String content) {
 		super();
 		this.type = type;
 		this.content = content;
 	}
 
-	public String getType() {
+	public WorkerMessageType getType() {
 		return type;
 	}
-	public void setType(String type) {
+	public void setType(WorkerMessageType type) {
 		this.type = type;
 	}
 	public String getContent() {

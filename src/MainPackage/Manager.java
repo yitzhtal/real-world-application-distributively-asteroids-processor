@@ -76,47 +76,17 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 public class Manager {
-	public static final String workersListener         = "workersListener";
-	public static final String managerListener         = "managerListener";
+	
 	public final static AtomicInteger currentNumberOfWorkers = new AtomicInteger();
 	public final static AtomicInteger currentNumberOfTerminationMessages = new AtomicInteger();
 	public volatile static boolean terminated = false;
-	public static final int sealTheDealDelay = 10;	
+	
 	public static String accessKey;
 	public static String secretKey;
 	public static ConcurrentHashMap<String, AtomicTasksTracker> mapLocals;
 	public static ConcurrentHashMap<String, String> mapLocalsQueueURLS;
 	private static Thread localApplicationHandler = null;
-	private static Thread workersHandler = null;
-	private static String getStringFromInputStream(InputStream is) {
-
-		BufferedReader br = null;
-		StringBuilder sb = new StringBuilder();
-
-		String line;
-		try {
-
-			br = new BufferedReader(new InputStreamReader(is));
-			while ((line = br.readLine()) != null) {
-				sb.append(line);
-			}
-
-		} catch (IOException e) {
-			e.printStackTrace();
-		} finally {
-			if (br != null) {
-				try {
-					br.close();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-			}
-		}
-
-		return sb.toString();
-
-	}
-
+	private static Thread WorkersHandler = null;
 
 	public static Boolean isTerminate(){
 		return terminated;
@@ -148,7 +118,7 @@ public class Manager {
 		/* credentials handling ...  */
 
 		
-		final String path = "/AWSCredentials.properties";  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
+		  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
 		//C:/Users/assaf/Downloads/AWSCredentials.properties
 		/*try {
 			properties.load(ClassLoader.getSystemResourceAsStream(path));
@@ -169,7 +139,7 @@ public class Manager {
             File newJarPath = new File(propertiesPath);
             String newPropetriesPath = newJarPath.getParent();
             System.out.println("newPropetriesPath" + newPropetriesPath);
-            prop.load(new FileInputStream(newPropetriesPath+path));
+            prop.load(new FileInputStream(newPropetriesPath+Constants.path));
         } catch (IOException e1) {
             e1.printStackTrace();
         }
@@ -183,51 +153,51 @@ public class Manager {
 
 		/* Set data structures */
 
-		String workersListenerURL = mySQS.getInstance().createQueue(workersListener);
-		String managerListenerURL = mySQS.getInstance().createQueue(managerListener);
+		String workersListenerURL = mySQS.getInstance().createQueue(Constants.workersListener);
+		String managerListenerURL = mySQS.getInstance().createQueue(Constants.managerListener);
 		mapLocals = new ConcurrentHashMap<String, AtomicTasksTracker>();
 		mapLocalsQueueURLS = new ConcurrentHashMap<String, String>();
-		ExecutorService localApplicationHandlerExecutor = Executors.newFixedThreadPool(5); 
-		ExecutorService workersHandlerExecutor = Executors.newFixedThreadPool(5); 
+		ExecutorService LocalApplicationHandlerExecutor = Executors.newFixedThreadPool(5); 
+		ExecutorService WorkersHandlerExecutor = Executors.newFixedThreadPool(5); 
 		/* Set data structures */
 
-		localApplicationHandler = new Thread(){
+		localApplicationHandler = new Thread() {
 			public void run(){
 				while(!terminated) {
 					System.out.println("Manager :: localApplicationHandler :: awaits a message stating the location of the input file on S3.");
-					System.out.println("Manager :: localApplicationHandler :: fetching messages from queue: "+ LocalApplication.All_local_applications_queue_name);
-					System.out.println("Manager :: localApplicationHandler :: queue URL is: "+ mySQS.getInstance().getQueueUrl(LocalApplication.All_local_applications_queue_name));
+					System.out.println("Manager :: localApplicationHandler :: fetching messages from queue: "+ Constants.All_local_applications_queue_name);
+					System.out.println("Manager :: localApplicationHandler :: queue URL is: "+ mySQS.getInstance().getQueueUrl(Constants.All_local_applications_queue_name));
 
-					String queueURL = mySQS.getInstance().getQueueUrl(LocalApplication.All_local_applications_queue_name);
-					List<com.amazonaws.services.sqs.model.Message> messages = mySQS.getInstance().awaitMessagesFromQueue(queueURL,5,"Manager :: localApplicationHandler");
+					String queueURL = mySQS.getInstance().getQueueUrl(Constants.All_local_applications_queue_name);
+					List<com.amazonaws.services.sqs.model.Message> messages = mySQS.getInstance().awaitMessagesFromQueue(queueURL,Constants.LocalApplicationHandlerAwaitMessageDelay,"Manager :: localApplicationHandler");
 					System.out.println("Manager :: localApplicationHandler :: got a new message from local application... executing thread to handle the message on thread pool!");
 
-					localApplicationHandlerExecutor.execute(new LocalMsgHandlerRunnable(messages, queueURL, workersListenerURL,accessKey,secretKey));
+					LocalApplicationHandlerExecutor.execute(new LocalMsgHandlerRunnable(messages, queueURL, workersListenerURL,accessKey,secretKey));
 				}
 				System.out.println("Manager :: localApplicationHandler :: terminated = true, therefore I`m not running anymore.");
-				localApplicationHandlerExecutor.shutdown();
+				LocalApplicationHandlerExecutor.shutdown();
 				return;
 			}
 		};
 
-		workersHandler = new Thread(){
+		WorkersHandler = new Thread(){
 			public void run(){
 				System.out.println("Manager :: workersHandler :: has started running...");
 				System.out.println("Manager :: workersHandler :: terminated = " + terminated);
 				while(!terminated || !mySQS.getInstance().getMessagesFromQueue(managerListenerURL,"Manager :: workersHandler").isEmpty()) {
 							System.out.println("Manager (workersHandler) :: workersListener is not empty, fetching for messages....");
-							List<com.amazonaws.services.sqs.model.Message> result = mySQS.getInstance().awaitMessagesFromQueue(managerListenerURL,5,"Manager (workersHandler)");
-							workersHandlerExecutor.execute(new WorkersMsgHandlerRunnable(result,managerListenerURL,localApplicationHandler,workersHandler,workersListenerURL,accessKey,secretKey));
+							List<com.amazonaws.services.sqs.model.Message> result = mySQS.getInstance().awaitMessagesFromQueue(managerListenerURL,Constants.WorkersHandlerAwaitMessageDelay,"Manager (workersHandler)");
+							WorkersHandlerExecutor.execute(new WorkersMsgHandlerRunnable(result,managerListenerURL,localApplicationHandler,WorkersHandler,workersListenerURL,accessKey,secretKey));
 				}
 				//gets here only if terminated == true && managerListener is an empty queue.
 				System.out.println("Manager :: workersHandler ::  terminated = true, therefore I`m not running anymore.");
-				workersHandlerExecutor.shutdown();
+				WorkersHandlerExecutor.shutdown();
 				return;
 			};
 
 		};
 						
 		localApplicationHandler.start();
-		workersHandler.start();
+		WorkersHandler.start();
 	}	
 }

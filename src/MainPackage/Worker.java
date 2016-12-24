@@ -23,6 +23,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
 
+import com.amazonaws.services.elasticbeanstalk.model.Queue;
 import com.amazonaws.services.sqs.model.Message;
 import com.google.gson.Gson;
 
@@ -31,6 +32,7 @@ import JsonObjects.AtomicTask;
 import JsonObjects.TerminationMessage;
 import JsonObjects.WorkerMessage;
 import enums.DangerColor;
+import enums.WorkerMessageType;
 
 public class Worker {
 	
@@ -46,7 +48,7 @@ public class Worker {
 		/* credentials handling ...  */
 	
 		//Properties properties = new Properties();
-		String path = "/AWSCredentials.properties";  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
+		//String path = "/AWSCredentials.properties";  //C:/Users/Tal Itshayek/Desktop/DistributedSystems/importexport-webservice-tool/AWSCredentials.properties
 		//C:/Users/assaf/Downloads/AWSCredentials.properties
 		/*try {
 			properties.load(ClassLoader.getSystemResourceAsStream(path));
@@ -66,7 +68,7 @@ public class Worker {
             File newJarPath = new File(propertiesPath);
             String newPropetriesPath = newJarPath.getParent();
             System.out.println("newPropetriesPath" + newPropetriesPath);
-            prop.load(new FileInputStream(newPropetriesPath+path));
+            prop.load(new FileInputStream(newPropetriesPath+Constants.path));
         } catch (IOException e1) {
             e1.printStackTrace();
         }
@@ -80,7 +82,8 @@ public class Worker {
 		/* credentials handling ...  */
 	
 		while(!terminated) {	
-			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),10,"Worker");
+			String workersListenerURL = mySQS.getInstance().getQueueUrl(Constants.workersListener);
+			List<Message> result = mySQS.getInstance().awaitMessagesFromQueue(workersListenerURL,Constants.WorkerAwaitMessageDelay,"Worker");
 	        String startDate,endDate;
 	        int speedThreshold,diameterThreshold;
 	        double missThreshold;
@@ -91,7 +94,7 @@ public class Worker {
 			for(Message msg : result) { 
 					    String s = msg.getBody(); 
 					    w = new Gson().fromJson(s, WorkerMessage.class);
-					    if(w.getType().equals("AtomicTask")) {
+					    if(w.getType() == WorkerMessageType.AtomicTask) {
 					    	    task = new Gson().fromJson(w.getContent(), AtomicTask.class);  
 							    startDate = task.getStartDate();
 				                endDate = task.getEndDate();
@@ -186,14 +189,14 @@ public class Worker {
 				      			String analysisRes = ja.toString();		
 				      			task.setDone(true);
 				      			task.setAtomicAnalysisResult(analysisRes);
-				      			mySQS.getInstance().sendMessageToQueue(Manager.managerListener,new Gson().toJson(task));
+				      			mySQS.getInstance().sendMessageToQueue(Constants.managerListener,new Gson().toJson(task));
 
-								mySQS.getInstance().deleteMessageFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),msg);
+								mySQS.getInstance().deleteMessageFromQueue(mySQS.getInstance().getQueueUrl(Constants.workersListener),msg);
 
 						}
 					    
-					    if(w.getType().equals("TerminationMessage")) {
-					    	    mySQS.getInstance().deleteMessageFromQueue(mySQS.getInstance().getQueueUrl(Manager.workersListener),msg); 
+					    if(w.getType() == WorkerMessageType.TerminationMessage) {
+					    	    mySQS.getInstance().deleteMessageFromQueue(mySQS.getInstance().getQueueUrl(Constants.workersListener),msg); 
 					    	 	t = new Gson().fromJson(w.getContent(), TerminationMessage.class);  	
 					    	 	if(t.isTerminate()) {
 					    	 			System.out.println("----------------------------------------");

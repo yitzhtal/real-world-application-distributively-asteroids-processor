@@ -82,13 +82,4 @@ public class LocalApplicationTests {
 		  assertEquals(LocalApplication.hasManager(ec2),true);
 	}
 	
-	@Test
-	public void testAfterThatTime() {
-		assertEquals(true, LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-26"));
-		assertEquals(true,LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-27"));
-		assertEquals(true,LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-28"));
-		assertEquals(true,LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-29"));
-		assertEquals(true,LocalMsgHandlerRunnable.afterThatDate("2017-01-31","2017-01-30"));
-	}
-	
 }

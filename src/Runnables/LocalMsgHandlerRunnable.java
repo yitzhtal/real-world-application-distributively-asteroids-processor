@@ -4,9 +4,12 @@ import JsonObjects.AtomicTask;
 import JsonObjects.LocalApplicationMessage;
 import JsonObjects.WorkerMessage;
 import MainPackage.AtomicTasksTracker;
+import MainPackage.Constants;
 import MainPackage.LocalApplication;
 import MainPackage.Manager;
 import MainPackage.mySQS;
+import enums.WorkerMessageType;
+
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.CreateTagsRequest;
@@ -66,8 +69,8 @@ public class LocalMsgHandlerRunnable implements Runnable{
         lines.add("#!/bin/bash");
         lines.add("echo y|sudo yum install java-1.8.0");
         lines.add("echo y|sudo yum remove java-1.7.0-openjdk");
-        lines.add("wget https://s3.amazonaws.com/real-world-application-asteroids/AWSCredentials.zip -O AWSCredentialsTEMP.zip");
-        lines.add("unzip -P audiocodes AWSCredentialsTEMP.zip");
+        lines.add("wget https://s3.amazonaws.com/real-world-application-asteroids/"+Constants.ZipFileName+" -O AWSCredentialsTEMP.zip");
+        lines.add("unzip -P "+Constants.ZipFilePassword+" AWSCredentialsTEMP.zip");
         lines.add("wget https://s3.amazonaws.com/real-world-application-asteroids/worker.jar -O worker.jar");
         lines.add("java -jar worker.jar");
         String str = new String(org.apache.commons.codec.binary.Base64.encodeBase64(join(lines, "\n").getBytes()));
@@ -85,26 +88,6 @@ public class LocalMsgHandlerRunnable implements Runnable{
             builder.append(delimiter);
         }
         return builder.toString();
-    }
-
-    public static boolean afterThatDate(String currentEndDate, String endDate) {
-        if(currentEndDate == null || endDate == null) return false;
-
-        String[] currentEndDateParts = currentEndDate.split("-");
-
-        String currentEndDateYear = currentEndDateParts[0];
-        String currentEndDateMonth = currentEndDateParts[1];
-        String currentEndDateDay = currentEndDateParts[2];
-
-        String[] endDateParts = endDate.split("-");
-        String endDateYear = endDateParts[0];
-        String endDateMonth = endDateParts[1];
-        String endDateDay = endDateParts[2];
-
-        if(Integer.parseInt(currentEndDateYear) > Integer.parseInt(endDateYear)) return true;
-        if((Integer.parseInt(currentEndDateYear) == Integer.parseInt(endDateYear)) && (Integer.parseInt(currentEndDateMonth) > Integer.parseInt(endDateMonth))) return true;
-        if((Integer.parseInt(currentEndDateYear) == Integer.parseInt(endDateYear)) && (Integer.parseInt(currentEndDateMonth) == Integer.parseInt(endDateMonth)) &&  (Integer.parseInt(currentEndDateDay) > Integer.parseInt(endDateDay))) return true;
-        return false;
     }
 
     public static ArrayList<AtomicTask> splitWorkAmongsWorkers(AtomicTask input, int d) throws ParseException{
@@ -143,12 +126,6 @@ public class LocalMsgHandlerRunnable implements Runnable{
             tasks.add(split);
             count += day_per_task+1;
             cal1.add(Calendar.DATE, 1);
-            //if(afterThatDate(sdf.format(cal1.getTime()),input.getEndDate())) {
-            //System.out.println(sdf.format(cal1.getTime()) + "is after the time"+input.getEndDate() );
-            //return tasks;
-            //} else {
-            // System.out.println(sdf.format(cal1.getTime()) + "is before the time"+input.getEndDate() );
-            //}
         }
         return tasks;
     }
@@ -220,53 +197,48 @@ public class LocalMsgHandlerRunnable implements Runnable{
             } else {
                 System.out.println("Manager :: LocalMsgHandlerRunnable :: Error! keyName = "+keyName + ", bucketName = "+bucketName);
             }
-            if(!afterThatDate(inputFileDetails.getStartDate(),inputFileDetails.getEndDate())) {
-                System.out.println("Manager :: LocalMsgHandlerRunnable :: split the work amongs the workers...");
+            System.out.println("Manager :: LocalMsgHandlerRunnable :: split the work amongs the workers...");
 
-                ArrayList<AtomicTask> splits = null;
-                try {
-                    splits = splitWorkAmongsWorkers(inputFileDetails,d);
-                } catch (ParseException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+            ArrayList<AtomicTask> splits = null;
+            try {
+                splits = splitWorkAmongsWorkers(inputFileDetails,d);
+            } catch (ParseException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+            System.out.println("Manager :: LocalMsgHandlerRunnable :: splits.size() = "+splits.size());
+            System.out.println("Manager :: LocalMsgHandlerRunnable :: n = "+n);
+            double numberOfWorkers = 0;
+            int numberOfWorkersToCreate = 0;
+
+            synchronized(this) {
+                numberOfWorkers = (double) splits.size() / n;
+                numberOfWorkersToCreate = (int)numberOfWorkers - Manager.currentNumberOfWorkers.get();
+                if(splits.size() % n > 0) {
+                    numberOfWorkersToCreate++;
                 }
-                System.out.println("Manager :: LocalMsgHandlerRunnable :: splits.size() = "+splits.size());
-                System.out.println("Manager :: LocalMsgHandlerRunnable :: n = "+n);
-                double numberOfWorkers = 0;
-                int numberOfWorkersToCreate = 0;
+                //puts in the relevant hash map...
+                Manager.mapLocals.put(UUID,new AtomicTasksTracker(splits,0));
+            }
 
-                synchronized(this) {
-                    numberOfWorkers = (double) splits.size() / n;
-                    numberOfWorkersToCreate = (int)numberOfWorkers - Manager.currentNumberOfWorkers.get();
-                    if(splits.size() % n > 0) {
-                        numberOfWorkersToCreate++;
-                    }
-                    //puts in the relevant hash map...
-                    Manager.mapLocals.put(UUID,new AtomicTasksTracker(splits,0));
-                }
+            System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkers = "+numberOfWorkers);
+            System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkersToCreate = "+numberOfWorkersToCreate);
 
-                System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkers = "+numberOfWorkers);
-                System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkersToCreate = "+numberOfWorkersToCreate);
+            for(int i=0; i< numberOfWorkersToCreate; i++) {
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: creating a worker!");
+                //createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),Constants.InstanceType,Constants.KeyName,Constants.ImageID);
+                Manager.currentNumberOfWorkers.incrementAndGet();
 
-                for(int i=0; i< numberOfWorkersToCreate; i++) {
-                    System.out.println("Manager :: LocalMsgHandlerRunnable :: creating a worker!");
-                    //createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),"t2.micro","hardwell","ami-b73b63a0");
-                    Manager.currentNumberOfWorkers.incrementAndGet();
+            }
+            System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers = "+Manager.currentNumberOfWorkers.get());
 
-                }
-                System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers = "+Manager.currentNumberOfWorkers.get());
+            System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers after calculation is = "+Manager.currentNumberOfWorkers.get());
 
-                System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers after calculation is = "+Manager.currentNumberOfWorkers.get());
-
-                // move all splits towards the workers for them to handle...
-                for (AtomicTask f : splits) {
-                    WorkerMessage w = new WorkerMessage("AtomicTask",new Gson().toJson(f));
-                    System.out.println("Manager :: LocalMsgHandlerRunnable :: send all tasks to workers queue...");
-                    mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(w));
-                }
-            } else {
-                System.out.println("Manager :: LocalMsgHandlerRunnable :: the input file I just got doesn`t make sense (Dates Issues");
-                return;
+            // move all splits towards the workers for them to handle...
+            for (AtomicTask f : splits) {
+                WorkerMessage w = new WorkerMessage(WorkerMessageType.AtomicTask,new Gson().toJson(f));
+                System.out.println("Manager :: LocalMsgHandlerRunnable :: send all tasks to workers queue...");
+                mySQS.getInstance().sendMessageToQueue(workersListenerURL,new Gson().toJson(w));
             }
         }
 
