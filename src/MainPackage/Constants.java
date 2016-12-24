@@ -28,7 +28,7 @@ public final class Constants  {
 	
 	
 	//Credentials related constants
-	public static final String path 				= "/AWSCredentials.properties";
+	public static final String path 				= "AWSCredentials.properties";
 	public static final String credentialsURLFromS3 = "https://s3.amazonaws.com/real-world-application-asteroids/AWSCredentials.zip";
 	public static final String ZipFileName 			= "AWSCredentials.zip";
 	public static final String ZipFilePassword		= "audiocodes";
