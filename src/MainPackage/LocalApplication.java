@@ -147,8 +147,8 @@ public class LocalApplication {
 	
     public static void createManager(RunInstancesRequest request,AmazonEC2Client ec2,String instancetype,String keyname,String imageid) {
 		request.setInstanceType(instancetype);
-		request.setMinCount(1);
-		request.setMaxCount(1);
+		request.setMinCount(Constants.AmountOfInstancesRestrictionOnLocalApplication);
+		request.setMaxCount(Constants.AmountOfInstancesRestrictionOnLocalApplication);
 		request.setImageId(imageid);
 	    request.setKeyName(keyname);
 		request.setUserData(getUserDataScript());

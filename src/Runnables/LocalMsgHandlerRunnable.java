@@ -223,11 +223,16 @@ public class LocalMsgHandlerRunnable implements Runnable{
 
             System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkers = "+numberOfWorkers);
             System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkersToCreate = "+numberOfWorkersToCreate);
-
+            
+            
             for(int i=0; i< numberOfWorkersToCreate; i++) {
                 System.out.println("Manager :: LocalMsgHandlerRunnable :: creating a worker!");
                 //createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),Constants.InstanceType,Constants.KeyName,Constants.ImageID);
-                Manager.currentNumberOfWorkers.incrementAndGet();
+                if(Manager.currentNumberOfWorkers.incrementAndGet() >= Constants.AmountOfInstancesRestrictionOnManager) {
+                	System.out.println("Manager :: LocalMsgHandlerRunnable :: I have reached my limit of instances: "+Constants.AmountOfInstancesRestrictionOnManager+", I can`t create more then that.");
+                	
+                	break;
+                }
 
             }
             System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers = "+Manager.currentNumberOfWorkers.get());

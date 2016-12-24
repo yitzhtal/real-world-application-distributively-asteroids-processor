@@ -24,8 +24,8 @@ public final class Constants  {
 	public static final int WorkersHandlerAwaitMessageDelay          = 5; //in seconds
 	public static final int LocalApplicationAwaitMessageDelay        = 15; //in seconds
 	public static final int WorkerAwaitMessageDelay        			 = 10; //in seconds
-	
 	public static final int deleteingQueuesDelay                     = 10; //in seconds
+	
 	
 	//Credentials related constants
 	public static final String path 				= "/AWSCredentials.properties";
@@ -36,9 +36,14 @@ public final class Constants  {
 	//S3 related constants
 	public static final String bucketName           = "real-world-application-asteroids";
 	
+	
 	//Instance realted constants
 	public static final String ImageID 		= "ami-b73b63a0";
 	public static final String InstanceType = "t2.micro";
 	public static final String KeyName 		= "hardwell";
+	
+	//Total restriction is 20 instances.
+	public static final int AmountOfInstancesRestrictionOnLocalApplication = 1;
+	public static final int AmountOfInstancesRestrictionOnManager = 19;
 	
 }
