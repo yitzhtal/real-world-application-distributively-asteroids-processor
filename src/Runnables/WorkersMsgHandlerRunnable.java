@@ -5,11 +5,11 @@ import JsonObjects.SummaryFile;
 import JsonObjects.SummaryFileReceipt;
 import JsonObjects.TerminationMessage;
 import JsonObjects.WorkerMessage;
-import MainPackage.AtomicTasksTracker;
-import MainPackage.Constants;
-import MainPackage.LocalApplication;
-import MainPackage.Manager;
-import MainPackage.mySQS;
+import main.AtomicTasksTracker;
+import main.Constants;
+import main.LocalApplication;
+import main.Manager;
+import main.mySQS;
 import enums.WorkerMessageType;
 
 import com.amazonaws.AmazonServiceException;
@@ -158,7 +158,6 @@ public class WorkersMsgHandlerRunnable implements Runnable{
 						JSONArray a = new JSONArray(f.getAtomicAnalysisResult());
 						AtomicAnalysisResultAsJSONArrayofOtherLocals = concatArray(AtomicAnalysisResultAsJSONArrayofOtherLocals,a);
 					} catch (JSONException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
 					if(localUUIDofOtherLocals == null) { 
@@ -173,8 +172,8 @@ public class WorkersMsgHandlerRunnable implements Runnable{
 				}	
 			}
 		}	
-		//shutDownAllInstancesByTag("worker",accessKey,secretKey);
-		//shutDownAllInstancesByTag("manager",accessKey,secretKey);
+		shutDownAllInstancesByTag("worker",accessKey,secretKey);
+		shutDownAllInstancesByTag("manager",accessKey,secretKey);
 		System.out.println("Manager :: waiting " + Constants.deleteingQueuesDelay +" seconds before deleting queues...");
 		Thread.sleep(Constants.deleteingQueuesDelay*1000);
 		System.out.println("Manager :: deleting all queues from the system...");
@@ -183,6 +182,8 @@ public class WorkersMsgHandlerRunnable implements Runnable{
 		mySQS.getInstance().deleteQueueByURL(mySQS.getInstance().getQueueUrl(Constants.All_local_applications_queue_name));
 		return;
 	}
+	
+	public static void main(String[] args) { }
 	
     @Override
     public void run() {

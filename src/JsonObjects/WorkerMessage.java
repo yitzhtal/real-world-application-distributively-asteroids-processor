@@ -5,7 +5,7 @@ import enums.WorkerMessageType;
 public class WorkerMessage {
 
 	private WorkerMessageType type; 
-	private String content; //can containt 2 kinds of messages: AtomicTask and TerminationMessage
+	private String content; //can contain 2 kinds of messages: AtomicTask and TerminationMessage
 
 	public WorkerMessage(WorkerMessageType type, String content) {
 		super();

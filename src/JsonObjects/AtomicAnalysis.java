@@ -1,7 +1,5 @@
 package JsonObjects;
 
-import org.json.JSONObject;
-
 import enums.DangerColor;
 
 public class AtomicAnalysis {

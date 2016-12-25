@@ -3,11 +3,11 @@ package Runnables;
 import JsonObjects.AtomicTask;
 import JsonObjects.LocalApplicationMessage;
 import JsonObjects.WorkerMessage;
-import MainPackage.AtomicTasksTracker;
-import MainPackage.Constants;
-import MainPackage.LocalApplication;
-import MainPackage.Manager;
-import MainPackage.mySQS;
+import main.AtomicTasksTracker;
+import main.Constants;
+
+import main.Manager;
+import main.mySQS;
 import enums.WorkerMessageType;
 
 import com.amazonaws.auth.BasicAWSCredentials;
@@ -23,7 +23,7 @@ import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.sqs.model.Message;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.apache.commons.codec.binary.*;
+
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -32,7 +32,7 @@ import java.io.InputStreamReader;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+
 
 public class LocalMsgHandlerRunnable implements Runnable{
 
@@ -134,7 +134,8 @@ public class LocalMsgHandlerRunnable implements Runnable{
         return (int)( (d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
     }
 
-    @Override
+    @SuppressWarnings("unused")
+	@Override
     public void run() {
         if(!Manager.terminated) {
             String bucketName = null, keyName = null, queueURLtoGetBackTo = null,outputFileName = null,UUID = null;
@@ -203,7 +204,7 @@ public class LocalMsgHandlerRunnable implements Runnable{
             try {
                 splits = splitWorkAmongsWorkers(inputFileDetails,d);
             } catch (ParseException e) {
-                // TODO Auto-generated catch block
+               
                 e.printStackTrace();
             }
             System.out.println("Manager :: LocalMsgHandlerRunnable :: splits.size() = "+splits.size());
@@ -227,7 +228,7 @@ public class LocalMsgHandlerRunnable implements Runnable{
             
             for(int i=0; i< numberOfWorkersToCreate; i++) {
                 System.out.println("Manager :: LocalMsgHandlerRunnable :: creating a worker!");
-                //createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),Constants.InstanceType,Constants.KeyName,Constants.ImageID);
+                createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),Constants.InstanceType,Constants.KeyName,Constants.ImageID);
                 if(Manager.currentNumberOfWorkers.incrementAndGet() >= Constants.AmountOfInstancesRestrictionOnManager) {
                 	System.out.println("Manager :: LocalMsgHandlerRunnable :: I have reached my limit of instances: "+Constants.AmountOfInstancesRestrictionOnManager+", I can`t create more then that.");
                 	
