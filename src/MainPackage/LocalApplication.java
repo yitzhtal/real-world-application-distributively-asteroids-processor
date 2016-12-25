@@ -229,13 +229,7 @@ public class LocalApplication {
             
             Properties prop = new Properties();
             try {
-                File jarPath = new File(LocalApplication.class.getProtectionDomain().getCodeSource().getLocation().getPath());
-                String propertiesPath = jarPath.getParent();
-                System.out.println("newPropetriesPath" + propertiesPath);
-                File newJarPath = new File(propertiesPath);
-                String newPropetriesPath = newJarPath.getParent();
-                System.out.println("newPropetriesPath" + newPropetriesPath);
-                prop.load(new FileInputStream(newPropetriesPath+Constants.path));
+				prop.load(new FileInputStream(Constants.path));
             } catch (IOException e1) {
                 e1.printStackTrace();
             }
