@@ -33,6 +33,13 @@ public final class Constants  {
 	public static final String ZipFileName 			= "AWSCredentials.zip";
 	public static final String ZipFilePassword		= "audiocodes";
 	
+	//HTML Related constants
+	//public static final String beginningFromS3 = "https://s3.amazonaws.com/real-world-application-asteroids/beginning.html";
+	public static final String beginningName = "beginning.html";
+	//public static final String endFromS3 = "https://s3.amazonaws.com/real-world-application-asteroids/end.html";
+	public static final String endName = "end.html";
+
+	
 	//S3 related constants
 	public static final String bucketName           = "real-world-application-asteroids";
 	

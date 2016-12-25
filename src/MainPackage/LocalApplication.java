@@ -305,11 +305,10 @@ public class LocalApplication {
 		      
 		      Collections.sort(AtomicAnalysisResultAsArrayList, new Comparator<AtomicAnalysis>() {
 		          public int compare(AtomicAnalysis a, AtomicAnalysis b) {
-					  return a.getNameAsteroid().compareTo(b.getNameAsteroid());
-//		              int res = a.getDanger().getId() - b.getDanger().getId();
-//		              if(res != 0) return res;
-//		              double res2 = Double.parseDouble(a.getMiss_distance_kilometers()) - Double.parseDouble(b.getMiss_distance_kilometers());
-//		              return (int) res2;
+		              int res = a.getDanger().getId() - b.getDanger().getId();
+		              if(res != 0) return res;
+		              double res2 = Double.parseDouble(a.getMiss_distance_kilometers()) - Double.parseDouble(b.getMiss_distance_kilometers());
+		              return (int) res2;
 		          }
 		      });
 		        
@@ -325,8 +324,8 @@ public class LocalApplication {
 		  			        FileWriter fileWriter = null;
 		  			        BufferedWriter bufferedWriter = null;
 							fileWriter = new FileWriter(file);
-		  			        bufferedWriter = new BufferedWriter(fileWriter);	  		
-							bufferedWriter.write(readFile("beginning.html",StandardCharsets.UTF_8));
+		  			        bufferedWriter = new BufferedWriter(fileWriter);	
+							bufferedWriter.write(readFile(Constants.beginningName,StandardCharsets.UTF_8));
 
 							for (int i = 0; i < AtomicAnalysisResultAsArrayList.size(); i++) {
 										JsonObjects.AtomicAnalysis o =  AtomicAnalysisResultAsArrayList.get(i);		
@@ -362,8 +361,8 @@ public class LocalApplication {
 							mySQS.getInstance().deleteQueueByURL(queueURLToGoBackTo);
 							new File(uuid+"-"+inputFileName).delete();
 							new File("AsteroidsAnalysis-"+uuid).delete();
-							new File("AWSCredentials.properties").delete();	
-							new File("credentials.zip").delete();
+							new File(Constants.path).delete();	
+							new File(Constants.ZipFileName).delete();
 	  		  }	  
 		} catch (AmazonServiceException ase) {
 				System.out.println(""+ "Caught an AmazonServiceException, which " +"means your request made it " +"to Amazon S3, but was rejected with an error response" +" for some reason.");

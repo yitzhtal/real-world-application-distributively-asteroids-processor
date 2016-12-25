@@ -211,6 +211,7 @@ public class WorkersMsgHandlerRunnable implements Runnable{
                         }
                     }
                 }
+                System.out.println("Manager :: workersMsgHandlerRunnable :: Tracker asks if "+tracker.getTasks().size() +" == "+tracker.getDone());
                 if(tracker.isDone()) {
                 	System.out.println("Manager :: workersMsgHandlerRunnable :: this local application is done! Well done workers!");
                 	String localUUID = null;
