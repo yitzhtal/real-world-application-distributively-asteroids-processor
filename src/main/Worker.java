@@ -39,18 +39,8 @@ public class Worker {
 	public static void main(String[] args) throws Exception {
 			
 		/* credentials handling ...  */
-
 		
-		/* running locally */
-
-		//String accessKey = "AKIAJAYPPW22636YFN6A";
-		//String secretKey = "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";
-		
-		/*                 */
-		
-		
-		
-		PropertiesCredentials p = new PropertiesCredentials(LocalApplication.class.getResourceAsStream("/main/resources/" + Constants.AWSCredentialsProperties));
+		PropertiesCredentials p = new PropertiesCredentials(LocalApplication.class.getResourceAsStream("/" + Constants.AWSCredentialsProperties));
 	    
 		String accessKey = p.getAWSAccessKeyId();
 		String secretKey = p.getAWSSecretKey();

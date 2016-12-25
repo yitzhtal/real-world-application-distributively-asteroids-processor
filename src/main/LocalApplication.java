@@ -201,30 +201,7 @@ public class LocalApplication {
 	
 		try {
 			
-			/* credentials handling ...  */
-			
-			URL website = new URL(Constants.credentialsURLFromS3);
-			try (InputStream in = website.openStream()) {
-				Files.copy(in, new File(Constants.ZipFileName).toPath(), StandardCopyOption.REPLACE_EXISTING);
-			}
-            System.out.println("Local Application :: Credentials File downloaded.");
-            try {
-                ZipFile zipFile = new ZipFile(Constants.ZipFileName);
-                if (zipFile.isEncrypted()) {
-                    zipFile.setPassword(Constants.ZipFilePassword);
-                }
-                zipFile.extractAll(System.getProperty("user.dir"));
-                System.out.println("Local Application :: File extracted.");
-            } catch (ZipException e) {
-                e.printStackTrace();
-            }
-			new File(Constants.ZipFileName).delete();
-		
-	        Path movefrom = FileSystems.getDefault().getPath(Paths.get("").toAbsolutePath().toString()+"/AWSCredentials.properties");
-	        Path target = FileSystems.getDefault().getPath(Paths.get("").toAbsolutePath().toString()+"/src/main/resources/AWSCredentials.properties");
-	        Files.move(movefrom, target, StandardCopyOption.REPLACE_EXISTING);
-			
-			PropertiesCredentials p = new PropertiesCredentials(LocalApplication.class.getResourceAsStream("/" + Constants.AWSCredentialsProperties));
+			PropertiesCredentials p = new PropertiesCredentials(LocalApplication.class.getResourceAsStream("/main/resources/" + Constants.AWSCredentialsProperties));
 		    
 			String accessKey = p.getAWSAccessKeyId();
 			String secretKey = p.getAWSSecretKey();
@@ -278,7 +255,7 @@ public class LocalApplication {
 		      S3ObjectInputStream contentFromS3 = s3object.getObjectContent();
 
 		      String contentAsJson = getStringFromInputStream(contentFromS3);	      
-		      System.out.println("Local Application :: the content of the summary file receipt as json is: " +contentAsJson);
+		      //System.out.println("Local Application :: the content of the summary file receipt as json is: " +contentAsJson);
 		      SummaryFile s = new Gson().fromJson(contentAsJson,SummaryFile.class);
 		      String AtomicAnalysisResult = s.getAtomicAnalysisResult();
 		      JSONArray AtomicAnalysisResultAsJsonArray = new JSONArray(AtomicAnalysisResult);
@@ -349,7 +326,7 @@ public class LocalApplication {
 							bufferedWriter.close();
 							fileWriter.close();
 							System.out.println("Local Application ("+localUUID+"): I`m done. Thanks for serving me!");
-							System.out.println("Local Application ("+localUUID+"): Now I can view the results on" + outputFileName+ " file! :)");
+							System.out.println("Local Application ("+localUUID+"): Now I can view the results on " + outputFileName+ " file! :)");
 							mySQS.getInstance().deleteQueueByURL(queueURLToGoBackTo);
 							new File(uuid+"-"+inputFileName).delete();
 							new File("AsteroidsAnalysis-"+uuid).delete();

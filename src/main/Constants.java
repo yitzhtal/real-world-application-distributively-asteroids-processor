@@ -26,6 +26,8 @@ public final class Constants  {
 	public static final int WorkerAwaitMessageDelay        			 = 10; //in seconds
 	public static final int deleteingQueuesDelay                     = 10; //in seconds
 	
+	public static final int LocalApplicationHandlerFixedSizeThreadPool     = 30; //in seconds
+	public static final int WorkersHandlerFixedSizeThreadPool              = 30; //in seconds
 	
 	//Credentials related constants
 	public static final String AWSCredentialsProperties 			= "AWSCredentials.properties";

@@ -196,6 +196,7 @@ public class WorkersMsgHandlerRunnable implements Runnable{
                 mySQS.getInstance().deleteMessageFromQueue(managerListenerURL,msg);
 
                 AtomicTasksTracker tracker = Manager.mapLocals.get(AtomicTaskFromWorker.getLocalUUID());
+                System.out.println("Tracker here is with getDone = " + tracker.getDone() + ",and size()="+tracker.getTasks().size());
                 ArrayList<AtomicTask> tasks = tracker.getTasks();
 
                 if(tasks != null) {

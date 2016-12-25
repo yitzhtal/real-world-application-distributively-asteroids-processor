@@ -13,6 +13,10 @@ import enums.WorkerMessageType;
 import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.services.ec2.AmazonEC2Client;
 import com.amazonaws.services.ec2.model.CreateTagsRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesRequest;
+import com.amazonaws.services.ec2.model.DescribeInstancesResult;
+import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.Reservation;
 import com.amazonaws.services.ec2.model.RunInstancesRequest;
 import com.amazonaws.services.ec2.model.RunInstancesResult;
 import com.amazonaws.services.ec2.model.Tag;
@@ -62,6 +66,24 @@ public class LocalMsgHandlerRunnable implements Runnable{
         CreateTagsRequest createTagsRequest = new CreateTagsRequest();
         createTagsRequest.withResources(instances.get(0).getInstanceId()).withTags(new Tag("name","worker"));
         ec2.createTags(createTagsRequest);
+    }
+    
+    public static int getCurrentAmountOfRunningInstances(AmazonEC2Client ec2) {
+    	DescribeInstancesRequest request = new DescribeInstancesRequest();
+    	DescribeInstancesResult result = ec2.describeInstances(request);
+    	List<Reservation> reservations = result.getReservations();
+    	
+    	int count = 0;
+    	
+    	for (Reservation reservation : reservations) {
+    	    List<Instance> instances = reservation.getInstances();
+    	    for (Instance instance : instances) {
+    	    	if(instance.getState().getName().equals("running")) {
+    	    		count++;
+    	    	}
+    	    }
+    	}
+    	return count;
     }
 
     public static String getUserDataScript(){
@@ -227,15 +249,17 @@ public class LocalMsgHandlerRunnable implements Runnable{
             
             
             for(int i=0; i< numberOfWorkersToCreate; i++) {
-                System.out.println("Manager :: LocalMsgHandlerRunnable :: creating a worker!");
-                createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),Constants.InstanceType,Constants.KeyName,Constants.ImageID);
-                if(Manager.currentNumberOfWorkers.incrementAndGet() >= Constants.AmountOfInstancesRestrictionOnManager) {
-                	System.out.println("Manager :: LocalMsgHandlerRunnable :: I have reached my limit of instances: "+Constants.AmountOfInstancesRestrictionOnManager+", I can`t create more then that.");
-                	
-                	break;
-                }
-
+	                System.out.println("Manager :: LocalMsgHandlerRunnable :: is about to create a worker......");
+	                if(Manager.currentNumberOfWorkers.get() >= Constants.AmountOfInstancesRestrictionOnManager) {
+	                	System.out.println("Manager :: LocalMsgHandlerRunnable :: I have reached my limit of instances: "+Constants.AmountOfInstancesRestrictionOnManager+", I can`t create more then that.");
+	                	break;
+	                } else {
+	                	createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),Constants.InstanceType,Constants.KeyName,Constants.ImageID);
+	                	Manager.currentNumberOfWorkers.incrementAndGet();
+	                	System.out.println("Manager :: LocalMsgHandlerRunnable :: has created a worker!");
+	                }
             }
+            
             System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers = "+Manager.currentNumberOfWorkers.get());
 
             System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers after calculation is = "+Manager.currentNumberOfWorkers.get());

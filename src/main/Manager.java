@@ -15,7 +15,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import Runnables.LocalMsgHandlerRunnable;
 import Runnables.WorkersMsgHandlerRunnable;
 
+import com.amazonaws.auth.BasicAWSCredentials;
 import com.amazonaws.auth.PropertiesCredentials;
+import com.amazonaws.services.ec2.AmazonEC2Client;
 
 import JsonObjects.AtomicTask;
 
@@ -61,15 +63,6 @@ public class Manager {
 	}
 
 	public static void main(String[] args) throws Exception {
-
-		
-		/* running locally */
-
-		//accessKey = "AKIAJAYPPW22636YFN6A";
-		//secretKey = "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";
-		
-		/*                 */
-		
 		/* credentials handling ...  */	
 		
 		PropertiesCredentials p = new PropertiesCredentials(LocalApplication.class.getResourceAsStream("/" + Constants.AWSCredentialsProperties));
@@ -81,14 +74,18 @@ public class Manager {
 
 		/* credentials handling ...  */
 
+		
+		
 		/* Set data structures */
 
 		String workersListenerURL = mySQS.getInstance().createQueue(Constants.workersListener);
 		String managerListenerURL = mySQS.getInstance().createQueue(Constants.managerListener);
 		mapLocals = new ConcurrentHashMap<String, AtomicTasksTracker>();
 		mapLocalsQueueURLS = new ConcurrentHashMap<String, String>();
-		ExecutorService LocalApplicationHandlerExecutor = Executors.newFixedThreadPool(5); 
-		ExecutorService WorkersHandlerExecutor = Executors.newFixedThreadPool(5); 
+		ExecutorService LocalApplicationHandlerExecutor = Executors.newFixedThreadPool(Constants.LocalApplicationHandlerFixedSizeThreadPool); 
+		ExecutorService WorkersHandlerExecutor = Executors.newFixedThreadPool(Constants.WorkersHandlerFixedSizeThreadPool); 
+		currentNumberOfWorkers.set(LocalMsgHandlerRunnable.getCurrentAmountOfRunningInstances(new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey))));
+		
 		/* Set data structures */
 
 		localApplicationHandler = new Thread() {
@@ -110,7 +107,7 @@ public class Manager {
 			}
 		};
 
-		WorkersHandler = new Thread(){
+		WorkersHandler = new Thread() {
 			public void run(){
 				System.out.println("Manager :: workersHandler :: has started running...");
 				System.out.println("Manager :: workersHandler :: terminated = " + terminated);
