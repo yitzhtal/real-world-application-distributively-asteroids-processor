@@ -9,8 +9,14 @@ import java.net.URL;
 
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
-
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.util.EntityUtils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.json.JSONTokener;
@@ -22,6 +28,7 @@ import com.google.gson.Gson;
 
 import JsonObjects.AtomicAnalysis;
 import JsonObjects.AtomicTask;
+import JsonObjects.StatisticsFile;
 import JsonObjects.TerminationMessage;
 import JsonObjects.WorkerMessage;
 import enums.DangerColor;
@@ -44,7 +51,9 @@ public class Worker {
 	    
 		String accessKey = p.getAWSAccessKeyId();
 		String secretKey = p.getAWSSecretKey();
-
+		
+		String currentAPIKey = "GG5T9i8vucmdDrRi3AgwU2aONZzLNHvos332Ch6a";
+		
 		mySQS.setAccessAndSecretKey(accessKey, secretKey);
 	
 		/* credentials handling ...  */
@@ -69,35 +78,59 @@ public class Worker {
 				                speedThreshold = task.getSpeedThreshold();
 				                diameterThreshold = task.getDiameterThreshold();
 				                missThreshold = task.getMissThreshold();
+				                System.out.println("Worker :: now using api key = "+currentAPIKey);
 				                String url = "https://api.nasa.gov/neo/rest/v1/feed?start_date="
 				      	      		+ startDate
 				      	      		+ "&end_date="
 				      	      		+ endDate
-				      	      		+ "&api_key=GG5T9i8vucmdDrRi3AgwU2aONZzLNHvos332Ch6a";
+				      	      		+ "&api_key=" + currentAPIKey;
 					     
-				      			URL obj = new URL(url);
-				      			HttpURLConnection con = (HttpURLConnection) obj.openConnection();
-				
-				      			// optional default is GET
-				      			con.setRequestMethod("GET");
-				
-				      			//add request header
-				      			//con.setRequestProperty("api-key", API_KEY);
-				
-				      			int responseCode = con.getResponseCode();
-				      			System.out.println("\nSending 'GET' request to URL : " + url);
-				      			System.out.println("Response Code : " + responseCode);
-				
-				      			BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+				                HttpClient client = HttpClientBuilder.create().build();
+				        		HttpGet request = new HttpGet(url);
+				        		RequestConfig requestConfig = RequestConfig.custom().setSocketTimeout(3000).setConnectTimeout(3000).setConnectionRequestTimeout(3000).build();
+				        		request.setConfig(requestConfig);
+				        		request.addHeader("User-Agent", "Dist1");
+				        		HttpResponse response = client.execute(request);
+
+				        		int counter = 0;
+				        		
+				        		System.out.println("Worker :: status code = " + response.getStatusLine().getStatusCode());
+				        		
+				        		while(response.getStatusLine().getStatusCode() != 200 && counter < Constants.amountOfAttempsToReconnectToNasa){
+				        				Thread.sleep(10000); 
+					        			EntityUtils.consume(response.getEntity());
+					        			System.out.println("Worker :: trying again to get HTTP again...");
+					        			
+					        			int randomNum = ThreadLocalRandom.current().nextInt(0, Constants.NasaAPICacheList.length);
+					        			System.out.println("Worker :: random a nasa api key from the array in cell ->"+randomNum);
+					        			currentAPIKey = Constants.NasaAPICacheList[randomNum];
+					        			System.out.println("Worker :: let`s try another key? " + currentAPIKey);
+					        			url = "https://api.nasa.gov/neo/rest/v1/feed?start_date="
+								      	      		+ startDate
+								      	      		+ "&end_date="
+								      	      		+ endDate
+								      	      		+ "&api_key="+
+								      	      		currentAPIKey;
+									     
+								        client = HttpClientBuilder.create().build();
+								        request = new HttpGet(url);
+								        requestConfig = RequestConfig.custom().setSocketTimeout(3000).setConnectTimeout(3000).setConnectionRequestTimeout(3000).build();
+								        		request.setConfig(requestConfig);
+								        		request.addHeader("User-Agent", "Dist1");
+					        			response = client.execute(request);
+					        			counter++;
+				        		}
+				        		
+				      			BufferedReader in = new BufferedReader(new InputStreamReader(response.getEntity().getContent()));
 				      			String inputLine;
-				      			StringBuffer response = new StringBuffer();
+				      			StringBuffer responseBuffer = new StringBuffer();
 				
 				      			while ((inputLine = in.readLine()) != null) {
-				      				response.append(inputLine);
+				      				responseBuffer.append(inputLine);
 				      			}
 				      			in.close();
 				
-				      			JSONObject jsonObject = new JSONObject(new JSONTokener(response.toString()));
+				      			JSONObject jsonObject = new JSONObject(new JSONTokener(responseBuffer.toString()));
 				      			JSONObject nearEarthObjects = jsonObject.getJSONObject("near_earth_objects");
 				      			Iterator<?> nearEarthObjectsIterator = nearEarthObjects.keys();
 				      			JSONArray ja = new JSONArray();
@@ -174,6 +207,9 @@ public class Worker {
 					    	 			System.out.println("Safe Asteroids: "+safeAsteroids);		
 					    	 			System.out.println("----------------------------------------");
 					    	 			System.out.println("----------------------------------------");
+					    	 			
+					    	 			StatisticsFile statisticsFile = new StatisticsFile(asteroidsParsed,dangerousAsteroids,safeAsteroids);
+					    	 			mySQS.getInstance().sendMessageToQueue(mySQS.getInstance().getQueueUrl(Constants.statisticsData), new Gson().toJson(statisticsFile));
 					    	 			return;
 					    	 	}	
 					    }

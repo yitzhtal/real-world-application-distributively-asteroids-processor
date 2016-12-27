@@ -56,7 +56,7 @@ import com.amazonaws.services.ec2.model.RunInstancesResult;
 import com.amazonaws.services.ec2.model.Tag;
 
 import com.amazonaws.services.s3.model.CannedAccessControlList;
-
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.PutObjectRequest;
 import com.amazonaws.services.sqs.model.Message;
 
@@ -181,7 +181,7 @@ public class LocalApplication {
     }
 	
 	public static void main(String[] args) throws IOException, JSONException {
-		if(args.length <= 4) { System.out.println("Local Application :: You must insert enought arguments! "); }
+		if(args.length <= 3 || args.length > 5) { System.out.println("Local Application :: the number of arguments is suppose to be 4 or 5! "); }
 		String inputFileName = args[0];
 		String outputFileName = args[1];
 		int n = Integer.parseInt(args[2]);
@@ -193,12 +193,13 @@ public class LocalApplication {
 			terminate = (args[4].equals("terminate")) ? true : false;
 		}
 		
+		
 		System.out.println("Local Application :: has started...\n");
 		System.out.println("Local Application :: Arguments received :: inputFileName = "+ inputFileName);		
 		System.out.println("Local Application :: Arguments received :: outputFileName = "+ outputFileName);	
 		System.out.println("Local Application :: Arguments received :: n = "+ n);	
 		System.out.println("Local Application :: Arguments received :: d = "+ d + "\n\n");	
-	
+		
 		try {
 			
 			PropertiesCredentials p = new PropertiesCredentials(LocalApplication.class.getResourceAsStream("/main/resources/" + Constants.AWSCredentialsProperties));
@@ -234,6 +235,7 @@ public class LocalApplication {
 			
 			System.out.println("Local Application :: trying to run a manager ec2 instance... \n");
 
+			//We can assume no race conditions here...
 			if(!hasManager(ec2)) { 
 				System.out.println("Local Application :: Manager was not found. we now create an instance of it!");
 				createManager(new RunInstancesRequest(),ec2,Constants.InstanceType,Constants.KeyName,Constants.ImageID); 
@@ -255,6 +257,11 @@ public class LocalApplication {
 		      S3ObjectInputStream contentFromS3 = s3object.getObjectContent();
 
 		      String contentAsJson = getStringFromInputStream(contentFromS3);	      
+		      
+		      //at this moment, we can delete the summary file from s3 so there won`t be any garbage there...   
+		      System.out.println("LocalApplication :: trying to delete the file from bucket: "+Constants.bucketName+", named "+r.getSummaryFileName());
+		      s3Client.deleteObject(new DeleteObjectRequest(Constants.bucketName, r.getSummaryFileName()));		
+		      
 		      //System.out.println("Local Application :: the content of the summary file receipt as json is: " +contentAsJson);
 		      SummaryFile s = new Gson().fromJson(contentAsJson,SummaryFile.class);
 		      String AtomicAnalysisResult = s.getAtomicAnalysisResult();
@@ -294,7 +301,8 @@ public class LocalApplication {
 		  			        BufferedWriter bufferedWriter = null;
 							fileWriter = new FileWriter(file);
 		  			        bufferedWriter = new BufferedWriter(fileWriter);	
-							bufferedWriter.write(readFile(Constants.beginningName,StandardCharsets.UTF_8));
+		  			     
+							bufferedWriter.write(readFile(System.getProperty("user.dir")+"/src/main/resources/" + Constants.beginningName,StandardCharsets.UTF_8));
 
 							for (int i = 0; i < AtomicAnalysisResultAsArrayList.size(); i++) {
 										JsonObjects.AtomicAnalysis o =  AtomicAnalysisResultAsArrayList.get(i);		
@@ -319,7 +327,7 @@ public class LocalApplication {
 										} 
 							}
 
-							bufferedWriter.write(readFile("end.html",StandardCharsets.UTF_8));
+							bufferedWriter.write(readFile(System.getProperty("user.dir")+"/src/main/resources/"+ Constants.endName,StandardCharsets.UTF_8));
 		    			    System.out.println("LocalApplication :: Thanks for the summary file! I have created the HTML!");
 							bufferedWriter.flush();
 							fileWriter.flush();

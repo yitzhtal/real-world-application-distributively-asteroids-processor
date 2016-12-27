@@ -1,5 +1,7 @@
 package main;
 
+import java.util.ArrayList;
+
 public final class Constants  {
 
 	  /**
@@ -17,7 +19,14 @@ public final class Constants  {
 	public static final String All_local_applications_queue_name     = "all_local_applications_to_manager";  
 	public static final String workersListener         				 = "workersListener";
 	public static final String managerListener         				 = "managerListener";
+	public static final String statisticsData         				 = "statisticsData";
 	
+	public static final String[] NasaAPICacheList = { "FoXjWGh0jah5YCDDGpAQxNLOtZdifWJfXOsLpqif",
+														"cvRQ9vyblxapj5N49OSxhY8aJHPZVADeLIOzh90J",
+														"VA53l5L2G12FNaOPDdeKBFgz04u0U7dWuiugDO4P"};
+	
+	
+	public static final int amountOfAttempsToReconnectToNasa      =   10;
 	//AwaitMessage Delays
 	//Sets the amount of times this specific thread shall check for a new message in their relevant queues.
 	public static final int LocalApplicationHandlerAwaitMessageDelay = 5; //in seconds

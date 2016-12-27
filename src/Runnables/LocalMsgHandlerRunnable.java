@@ -22,6 +22,7 @@ import com.amazonaws.services.ec2.model.RunInstancesResult;
 import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.model.DeleteObjectRequest;
 import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.sqs.model.Message;
@@ -36,6 +37,7 @@ import java.io.InputStreamReader;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class LocalMsgHandlerRunnable implements Runnable{
@@ -54,7 +56,7 @@ public class LocalMsgHandlerRunnable implements Runnable{
         this.secretKey = secretKey;
     }
     
-    public static void createAndRunWorker(RunInstancesRequest r, AmazonEC2Client ec2, String instancetype, String keyname, String imageid) {
+    public static void createAndRunWorker(RunInstancesRequest r, AmazonEC2Client ec2, String instancetype, String keyname, String imageid,AtomicInteger currentNumberOfWorkers) {
         r.setInstanceType(instancetype);
         r.setMinCount(1);
         r.setMaxCount(1);
@@ -66,9 +68,10 @@ public class LocalMsgHandlerRunnable implements Runnable{
         CreateTagsRequest createTagsRequest = new CreateTagsRequest();
         createTagsRequest.withResources(instances.get(0).getInstanceId()).withTags(new Tag("name","worker"));
         ec2.createTags(createTagsRequest);
+    	Manager.currentNumberOfWorkers.incrementAndGet();
     }
     
-    public static int getCurrentAmountOfRunningInstances(AmazonEC2Client ec2) {
+    public static int getCurrentAmountOfRunningOrPendingInstances(AmazonEC2Client ec2) {
     	DescribeInstancesRequest request = new DescribeInstancesRequest();
     	DescribeInstancesResult result = ec2.describeInstances(request);
     	List<Reservation> reservations = result.getReservations();
@@ -78,7 +81,7 @@ public class LocalMsgHandlerRunnable implements Runnable{
     	for (Reservation reservation : reservations) {
     	    List<Instance> instances = reservation.getInstances();
     	    for (Instance instance : instances) {
-    	    	if(instance.getState().getName().equals("running")) {
+    	    	if(instance.getState().getName().equals("running") || instance.getState().getName().equals("pending")) {
     	    		count++;
     	    	}
     	    }
@@ -155,6 +158,41 @@ public class LocalMsgHandlerRunnable implements Runnable{
     public static int howManyDaysBetween(Date d1, Date d2){
         return (int)( (d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
     }
+    
+    public synchronized static void manageWorkersCreation(ArrayList<AtomicTask> splits,String UUID, int n,String accessKey,String secretKey) {
+        System.out.println("Manager :: LocalMsgHandlerRunnable :: splits.size() = "+splits.size());
+        System.out.println("Manager :: LocalMsgHandlerRunnable :: n = "+n);
+        double numberOfWorkers = 0;
+        int numberOfWorkersToCreate = 0;
+        numberOfWorkers = (double) splits.size() / n; 
+        numberOfWorkersToCreate = (int)numberOfWorkers - Manager.currentNumberOfWorkers.get();
+        if(splits.size() % n > 0) {
+        			System.out.println("got inside here");
+                    numberOfWorkersToCreate++;
+        }
+        //puts in the relevant hash map...
+        Manager.mapLocals.put(UUID,new AtomicTasksTracker(splits,0));
+        
+        System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkers = "+numberOfWorkers);
+        System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkersToCreate = "+numberOfWorkersToCreate);
+        
+        if(numberOfWorkersToCreate > 0) {
+		        for(int i=0; i< numberOfWorkersToCreate; i++) {
+		                System.out.println("Manager :: LocalMsgHandlerRunnable :: is about to create a worker......");
+		                if(Manager.currentNumberOfWorkers.get() >= Constants.AmountOfInstancesRestrictionOnManager) {
+		                	System.out.println("Manager :: LocalMsgHandlerRunnable :: I have reached my limit of instances: "+Constants.AmountOfInstancesRestrictionOnManager+", I can`t create more then that.");
+		                	break;
+		                } else {
+		                	createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),Constants.InstanceType,Constants.KeyName,Constants.ImageID,Manager.currentNumberOfWorkers);
+		                	System.out.println("Manager :: LocalMsgHandlerRunnable :: has created a worker!");
+		                }
+		        }
+		        System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers = "+Manager.currentNumberOfWorkers.get());
+		        System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers after calculation is = "+Manager.currentNumberOfWorkers.get());
+        } else {
+        		System.out.println("Manager :: LocalMsgHandlerRunnable :: in this case we aren`t creating any more workers!");
+        }
+    }
 
     @SuppressWarnings("unused")
 	@Override
@@ -216,6 +254,10 @@ public class LocalMsgHandlerRunnable implements Runnable{
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+                
+                //at the moment, we are done parsing the input file. now we can delete it  
+                System.out.println("Manager :: LocalMsgHandlerRunnable : trying to delete the file from bucket: "+Constants.bucketName+", named "+keyName);
+                s3.deleteObject(new DeleteObjectRequest(bucketName, keyName));		
 
             } else {
                 System.out.println("Manager :: LocalMsgHandlerRunnable :: Error! keyName = "+keyName + ", bucketName = "+bucketName);
@@ -229,40 +271,12 @@ public class LocalMsgHandlerRunnable implements Runnable{
                
                 e.printStackTrace();
             }
-            System.out.println("Manager :: LocalMsgHandlerRunnable :: splits.size() = "+splits.size());
-            System.out.println("Manager :: LocalMsgHandlerRunnable :: n = "+n);
-            double numberOfWorkers = 0;
-            int numberOfWorkersToCreate = 0;
-
-            synchronized(this) {
-                numberOfWorkers = (double) splits.size() / n;
-                numberOfWorkersToCreate = (int)numberOfWorkers - Manager.currentNumberOfWorkers.get();
-                if(splits.size() % n > 0) {
-                    numberOfWorkersToCreate++;
-                }
-                //puts in the relevant hash map...
-                Manager.mapLocals.put(UUID,new AtomicTasksTracker(splits,0));
-            }
-
-            System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkers = "+numberOfWorkers);
-            System.out.println("Manager :: LocalMsgHandlerRunnable :: numberOfWorkersToCreate = "+numberOfWorkersToCreate);
-            
-            
-            for(int i=0; i< numberOfWorkersToCreate; i++) {
-	                System.out.println("Manager :: LocalMsgHandlerRunnable :: is about to create a worker......");
-	                if(Manager.currentNumberOfWorkers.get() >= Constants.AmountOfInstancesRestrictionOnManager) {
-	                	System.out.println("Manager :: LocalMsgHandlerRunnable :: I have reached my limit of instances: "+Constants.AmountOfInstancesRestrictionOnManager+", I can`t create more then that.");
-	                	break;
-	                } else {
-	                	createAndRunWorker(new RunInstancesRequest(),new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey)),Constants.InstanceType,Constants.KeyName,Constants.ImageID);
-	                	Manager.currentNumberOfWorkers.incrementAndGet();
-	                	System.out.println("Manager :: LocalMsgHandlerRunnable :: has created a worker!");
-	                }
-            }
-            
-            System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers = "+Manager.currentNumberOfWorkers.get());
-
-            System.out.println("Manager :: LocalMsgHandlerRunnable :: currentNumberOfWorkers after calculation is = "+Manager.currentNumberOfWorkers.get());
+        	//this part can be done from more then 1 thread.
+        	//this part has to be considered an ATOMIC Part! 
+            //Meaning this action has to finish, if it has started.
+            //So that the next thread, will consider the whole amount of workers that the former created.
+            //Unless, it creates issues with the number of workers.
+            manageWorkersCreation(splits,UUID,n,accessKey,secretKey);
 
             // move all splits towards the workers for them to handle...
             for (AtomicTask f : splits) {

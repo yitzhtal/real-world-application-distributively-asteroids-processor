@@ -80,11 +80,14 @@ public class Manager {
 
 		String workersListenerURL = mySQS.getInstance().createQueue(Constants.workersListener);
 		String managerListenerURL = mySQS.getInstance().createQueue(Constants.managerListener);
+		mySQS.getInstance().createQueue(Constants.statisticsData);
 		mapLocals = new ConcurrentHashMap<String, AtomicTasksTracker>();
 		mapLocalsQueueURLS = new ConcurrentHashMap<String, String>();
 		ExecutorService LocalApplicationHandlerExecutor = Executors.newFixedThreadPool(Constants.LocalApplicationHandlerFixedSizeThreadPool); 
 		ExecutorService WorkersHandlerExecutor = Executors.newFixedThreadPool(Constants.WorkersHandlerFixedSizeThreadPool); 
-		currentNumberOfWorkers.set(LocalMsgHandlerRunnable.getCurrentAmountOfRunningInstances(new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey))));
+		
+		//substract one here, because the manager itself is running on an ec2 node...
+		//LOCALcurrentNumberOfWorkers.set(LocalMsgHandlerRunnable.getCurrentAmountOfRunningOrPendingInstances(new AmazonEC2Client(new BasicAWSCredentials(accessKey,secretKey))) - 1);
 		
 		/* Set data structures */
 

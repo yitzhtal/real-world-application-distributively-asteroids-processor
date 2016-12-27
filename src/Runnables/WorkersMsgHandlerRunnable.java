@@ -172,14 +172,15 @@ public class WorkersMsgHandlerRunnable implements Runnable{
 				}	
 			}
 		}	
-		shutDownAllInstancesByTag("worker",accessKey,secretKey);
-		shutDownAllInstancesByTag("manager",accessKey,secretKey);
 		System.out.println("Manager :: waiting " + Constants.deleteingQueuesDelay +" seconds before deleting queues...");
 		Thread.sleep(Constants.deleteingQueuesDelay*1000);
 		System.out.println("Manager :: deleting all queues from the system...");
 		mySQS.getInstance().deleteQueueByURL(mySQS.getInstance().getQueueUrl(Constants.workersListener));
 		mySQS.getInstance().deleteQueueByURL(mySQS.getInstance().getQueueUrl(Constants.managerListener));
 		mySQS.getInstance().deleteQueueByURL(mySQS.getInstance().getQueueUrl(Constants.All_local_applications_queue_name));
+		
+		shutDownAllInstancesByTag("worker",accessKey,secretKey);
+		shutDownAllInstancesByTag("manager",accessKey,secretKey);
 		return;
 	}
 	
