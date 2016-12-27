@@ -292,7 +292,7 @@ public class LocalApplication {
 				
 		      //Creating the html file with the summary file brought by the manager...
 
-		      File file = new File(outputFileName +"-"+ uuid +".html");
+		      File file = new File(outputFileName +".html");
 			 
 			  if(file.exists()) {
 	  			            System.out.println("LocalApplication :: File already exists! WTF, Dude...");

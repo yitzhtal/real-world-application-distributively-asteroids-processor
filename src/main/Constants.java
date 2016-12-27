@@ -26,23 +26,23 @@ public final class Constants  {
 														"VA53l5L2G12FNaOPDdeKBFgz04u0U7dWuiugDO4P"};
 	
 	
-	public static final int amountOfAttempsToReconnectToNasa      =   10;
+	public static final int amountOfAttempsToReconnectToNasa      =   3;
 	//AwaitMessage Delays
 	//Sets the amount of times this specific thread shall check for a new message in their relevant queues.
-	public static final int LocalApplicationHandlerAwaitMessageDelay = 5; //in seconds
-	public static final int WorkersHandlerAwaitMessageDelay          = 5; //in seconds
-	public static final int LocalApplicationAwaitMessageDelay        = 15; //in seconds
-	public static final int WorkerAwaitMessageDelay        			 = 10; //in seconds
-	public static final int deleteingQueuesDelay                     = 10; //in seconds
+	public static final int LocalApplicationHandlerAwaitMessageDelay      = 1; //in seconds
+	public static final int WorkersHandlerAwaitMessageDelay               = 0; //in seconds
+	public static final int LocalApplicationAwaitMessageDelay             = 0; //in seconds
+	public static final int WorkerAwaitMessageDelay        				  = 0; //in seconds
+	public static final int deleteingQueuesDelay                   		  = 2; //in seconds
 	
 	public static final int LocalApplicationHandlerFixedSizeThreadPool     = 30; //in seconds
 	public static final int WorkersHandlerFixedSizeThreadPool              = 30; //in seconds
 	
 	//Credentials related constants
 	public static final String AWSCredentialsProperties 			= "AWSCredentials.properties";
-	public static final String credentialsURLFromS3 = "https://s3.amazonaws.com/real-world-application-asteroids/AWSCredentials.zip";
-	public static final String ZipFileName 			= "AWSCredentials.zip";
-	public static final String ZipFilePassword		= "audiocodes";
+	public static final String credentialsURLFromS3 				= "https://s3.amazonaws.com/real-world-application-asteroids/AWSCredentials.zip";
+	public static final String ZipFileName 							= "AWSCredentials.zip";
+	public static final String ZipFilePassword						= "audiocodes";
 	
 	//HTML Related constants
 	//public static final String beginningFromS3 = "https://s3.amazonaws.com/real-world-application-asteroids/beginning.html";

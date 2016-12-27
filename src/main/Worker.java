@@ -97,7 +97,6 @@ public class Worker {
 				        		System.out.println("Worker :: status code = " + response.getStatusLine().getStatusCode());
 				        		
 				        		while(response.getStatusLine().getStatusCode() != 200 && counter < Constants.amountOfAttempsToReconnectToNasa){
-				        				Thread.sleep(10000); 
 					        			EntityUtils.consume(response.getEntity());
 					        			System.out.println("Worker :: trying again to get HTTP again...");
 					        			
